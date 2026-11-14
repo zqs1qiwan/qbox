@@ -1535,3 +1535,15 @@ QBox 是 Android TV / TV 盒子产品，故以 Android TV 实际规范为主、t
 **验证**：60 集 5 组源（末组 4 集）实测落点/闪烁；`QBOX_TEST_OK sites=49`（`--rerun-tasks` 强制重跑 `EXIT=0`；注意手动设相对 `$env:TMP` 会让 Robolectric 临时目录报错，须用项目 `.toolchain\test.ps1` 的绝对路径环境）；`BUILD SUCCESSFUL`；诊断已删；行内/点集/主动 UP/分组条/聚合搜索回归通过。提交 `b67f29c`。GS-79 补 ⑦、回归清单 D15、本 §16。
 
 **方法论**：稳定 id 是「复用仍存在的槽位」，**不是**「保住焦点永不被裁」；任何会缩小 itemCount 的数据变更，都要先把焦点移到新数据里仍存在的槽位。落点退化要用「相邻语义」判断方向，`Math.min(x, size-1)` 一律退化到末位是陷阱。
+
+## 17. 2026-11-15 播放/焦点两个根因 + 焦点逻辑全面 review（GS-78⑥/GS-79⑧）
+
+**用户诉求**：① 已播完的集点击应从「头」重播，实际秒退下一集，想重看永远点不进；② 不满分组向左翻回满分组时闪一下到某集再抢回；③ 全面 review 光标聚焦逻辑，修潜在问题；④ 技术债清理（合并/移除/废弃/补丁式修复）；⑤ 本地跑通后再实机。
+
+**Bug A（已播完秒退）根因**：`VodHistoryPolicy.startPositionMs = max(opening, position)` 不判断「已播完」。点已播完的**当前**集（history 仍是该集、position≈duration）→ 从结尾续播 → 瞬间 `playbackEnded` → 自动下一集。**根治**：`position >= duration - 1000`（到/接近结尾）返回 `C.TIME_UNSET`（从头）。新增 `PlaybackPositionTest` 7 项（null/中途续播/接近结尾/正好结束/超尾/片头优先/新集）全绿。判据：改「起始位置计算」根源，不在 `playbackEnded` 加拦截。
+
+**Bug B（不满↔满切换闪）根因**：`showEpisodePage` 原「无条件先 `focusEpisode(local)` 再 setPage」，但 `local` 按**新页**算、在**旧页**会被 clamp 成另一格 → 中间落点闪；且若 itemCount 缩小，焦点格会被裁 → rootViewRequestFocus → video。**根治**：只在「当前焦点格会被裁（current ≥ 新 size）」时才先聚焦安全槽位再 setPage；否则保持焦点不动。配合已有 stable id，全程焦点不离选集网格。
+
+**焦点逻辑 review 结论**：VideoActivity 的 `requestFocus` 调用点均为用户操作或首入初始焦点（`mDetailFocusSet` 只首次设、seek/控制条/全屏/退出各有明确归还路径），未发现新的自动抢焦点路径。`EpisodeAdapter/FlagAdapter/PartAdapter/QualityAdapter.setNextFocus*` 内部 `notifyDataSetChanged()` 与 `updateFocus` 的 `notifyItemChanged` 重复刷新（`EpisodeGroupAdapter` 则不通知）——列为技术债（待统一）。
+
+**本地门禁**：`BUILD SUCCESSFUL`、`QBOX_TEST_OK sites=49`、`PlaybackPositionTest` 7 项通过。Bug B 的实机验证待用户指令。文档：GS-78⑥、GS-79⑧、回归清单 D16/D17、本 §17。

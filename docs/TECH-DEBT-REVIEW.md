@@ -86,7 +86,9 @@
 | 3 | **全站胶囊 selector 统一**（删孪生 `selector_episode_item`，`selector_item` 加 `state_activated`）+ **精确等值颜色 token 收口**（11 文件 14 处，跳过 `<gradient>` 色标） | ✅ | `9a9b5ca`；build+test+真机三态 |
 | 4 | DEBUG 纯日志（`QBoxEpisodes`/`QBoxSnap`/`QBoxFlags`/`QBoxFocus`）| ⏸ **刻意未做** | release 被 R8 移除、零运行时收益，却要动焦点核心 `VideoActivity` 多处；`QBoxSeek`/`QBoxNav`/`QBoxGrid` 是验收手段本就不删。见下方取舍 |
 | 5 | 潜在 bug（B9–B28）、DEBUG 变体（GS-55）、双轨逻辑、圆角强统一、跨 flavour/Material Chip、`<gradient>` 色标 | ⏸ **待拍板** | 涉及行为/需先定标准，逐项单独提交 |
-| 6 | **选集焦点闪烁根治**（GS-79）：`EpisodeAdapter` 稳定 id 取代 GS-78③ 焦点守卫补丁，清除全部守卫代码 | ✅ | 待提交；build+test+真机（跨组翻页/点集/主动 UP/聚合搜索全回归） |
+| 6 | **选集焦点闪烁根治**（GS-79）：`EpisodeAdapter` 稳定 id 取代 GS-78③ 焦点守卫补丁，清除全部守卫代码 | ✅ | `2b91575`；build+test+真机（跨组翻页/点集/主动 UP/聚合搜索全回归） |
+| 7 | **播放/焦点两个根因**（GS-78⑥/GS-79⑧）：已播完从头重播（`startPositionMs`）+ 不满↔满翻页无中间落点（`showEpisodePage` 条件聚焦）+ `PlaybackPositionTest` 7 项 | ✅ | 待提交；build+test 本地通过，实机待指令 |
+| 8 | **`setNextFocusXxx` 全量重建**（B5）：4 个 adapter 的 setter 内部 `notifyDataSetChanged()` 与 `updateFocus` 的 `notifyItemChanged` 重复刷新 → 统一为「setter 纯赋值 + updateFocus 单次刷新」 | ⏳ 本轮处理 | 见 B5 |
 
 **仍需你 review 才能动的项**（第 4 节 R/B 组，理由 = 会改行为/视觉或需先定标准，擅自混入功能提交就是「修一个坏一个」）：
 - 圆角强统一（R1–R6）、`selector_setting_chip` 缺 `state_selected`（R2）、Control 双重 padding（R3）、`selector_button` 圆角跳变（R4）、`match_parent` 列表行胶囊（R5）、MAIN 目录 Material Chip 另一套（R6）

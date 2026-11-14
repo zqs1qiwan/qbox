@@ -74,6 +74,8 @@
 | D13 | **正序/倒序与分组条等高、横竖居中** | 分组条 dump + 截图 | `gc.xml`：6 项全 `y=665..745`（40dp 统一高度 + gravity=center） | [x] 2026-11-14 |
 | D14 | **焦点闪烁机制归零**（治本，非"看不见"） | 带栈 `OnGlobalFocusChangeListener` + `OnDrawListener` 诊断计数 | baseline（守卫版）`old=null→video`=2 / 闪烁 4 帧；根治后跨组翻页 `PageNotify=1 / VIDEO=0 / Flash=0`、纯点集焦点变化事件=0（GS-79⑥，诊断已删） | [x] 2026-11-14 |
 | D15 | **满页→不满页翻页：不闪 + 落相邻首集** | 60 集源（5 组，末组 4 集）逐键 | `ww`：43-56 组第二行最右 → 右翻 → 落 position 0 `[56,773]`（相邻 E57），旧版落 position 3（末集）；`QBoxRootFocus` 1→0（GS-79⑦） | [x] 2026-11-15 |
+| D16 | **不满页→满页翻页：不闪、无中间落点** | 30 集源（末组 2 集）向左翻回满分组 | `showEpisodePage` 改为「仅当前焦点会被裁时才先聚焦安全槽位，否则保持不动」（GS-78⑥）；本地 build+test 通过，待实机 | [ ] 待实机 |
+| D17 | **已播完的集点击=从头重播**（不秒退下一集） | `PlaybackPositionTest` 7 项 | `nearEndIsTreatedAsFinished`/`exactlyEndedRestarts`/`pastEndRestarts` 均返回 `TIME_UNSET`；`QBOX_TEST_OK sites=49`（GS-79⑧） | [x] 2026-11-15 |
 
 ## E. 选集数据（EpisodeInfo 单测 + 真机）
 
