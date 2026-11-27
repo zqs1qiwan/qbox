@@ -61,12 +61,21 @@ public class UpdateDialog extends BaseAlertDialog {
     public void onStart() {
         super.onStart();
         AlertDialog dialog = (AlertDialog) getDialog();
-        if (dialog != null) dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(view -> listener.onCancel(view));
-        if (dialog != null) dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> listener.onConfirm(view));
+        if (dialog == null) return;
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(view -> {
+            if (listener != null) listener.onCancel(view);
+        });
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+            if (listener != null) listener.onConfirm(view);
+        });
     }
 
     public void setProgress(int progress) {
         AlertDialog dialog = (AlertDialog) getDialog();
-        if (dialog != null) dialog.getButton(AlertDialog.BUTTON_POSITIVE).setText(String.format(Locale.getDefault(), "%1$d%%", progress));
+        if (dialog == null) return;
+        android.widget.Button positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        if (positive == null) return;
+        positive.setEnabled(progress <= 0 || progress >= 100);
+        positive.setText(String.format(Locale.getDefault(), "%1$d%%", progress));
     }
 }

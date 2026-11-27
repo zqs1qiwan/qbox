@@ -42,6 +42,11 @@ public final class EditionDialog extends BaseBottomSheetDialog implements Editio
     }
 
     @Override
+    protected boolean isSheet() {
+        return true;
+    }
+
+    @Override
     protected ViewBinding getBinding(@NonNull LayoutInflater inflater, @Nullable ViewGroup container) {
         return binding = DialogEditionBinding.inflate(inflater, container, false);
     }

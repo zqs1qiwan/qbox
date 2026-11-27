@@ -13,6 +13,8 @@ import com.fongmi.android.tv.utils.ResUtil;
 
 public final class PlaybackAction {
 
+    private static final float SPEED_ADJUSTMENT = 0.25f;
+
     public static void setPlaybackMode(PlayerManager player, TextView engine, TextView decode) {
         setText(engine, getEngineText(player));
         setText(decode, getDecodeText(player));
@@ -22,6 +24,11 @@ public final class PlaybackAction {
         float speed = player.toggleSpeed();
         showSpeedHint(view, speed);
         return speed;
+    }
+
+    public static void adjustSpeed(PlayerManager player, TextView view, boolean increase) {
+        float adjustment = increase ? SPEED_ADJUSTMENT : -SPEED_ADJUSTMENT;
+        showSpeedHint(view, player.setSpeed(player.getSpeed() + adjustment));
     }
 
     public static void startSpeedPress(PlayerManager player, TextView view) {
@@ -52,8 +59,8 @@ public final class PlaybackAction {
     }
 
     private static void setSpeedHint(TextView view, float speed) {
-        view.setAlpha(1.0f);
         view.animate().cancel();
+        view.setAlpha(1.0f);
         view.setVisibility(View.VISIBLE);
         view.setText(ResUtil.getString(R.string.play_speed_hint, SpeedSetting.format(speed)));
     }

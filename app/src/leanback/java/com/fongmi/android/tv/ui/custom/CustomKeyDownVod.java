@@ -19,6 +19,7 @@ public class CustomKeyDownVod extends GestureDetector.SimpleOnGestureListener {
     private long holdTime;
     /** 进度条拖动模式：repeat0 不落位移（首步让给「单点 ±1%」判定），hold 从首个 repeat 起按同一曲线走。 */
     private boolean scrubMode;
+    private final Runnable seekEnd;
 
     public void setScrubMode(boolean scrub) {
         scrubMode = scrub;
@@ -32,6 +33,7 @@ public class CustomKeyDownVod extends GestureDetector.SimpleOnGestureListener {
     private CustomKeyDownVod(Activity activity) {
         this.detector = new GestureDetector(activity, this);
         this.listener = (Listener) activity;
+        this.seekEnd = () -> listener.onSeekEnd(holdTime);
     }
 
     public boolean onTouchEvent(MotionEvent e) {
@@ -54,11 +56,13 @@ public class CustomKeyDownVod extends GestureDetector.SimpleOnGestureListener {
 
     private void check(KeyEvent event) {
         if (KeyUtil.isActionDown(event) && KeyUtil.isLeftKey(event)) {
+            App.removeCallbacks(seekEnd);
             seek(event, false);
         } else if (KeyUtil.isActionDown(event) && KeyUtil.isRightKey(event)) {
+            App.removeCallbacks(seekEnd);
             seek(event, true);
         } else if (KeyUtil.isActionUp(event) && (KeyUtil.isLeftKey(event) || KeyUtil.isRightKey(event))) {
-            App.post(() -> listener.onSeekEnd(holdTime), 250);
+            App.post(seekEnd, 250);
         } else if (KeyUtil.isActionUp(event) && KeyUtil.isUpKey(event)) {
             if (changeSpeed) listener.onSpeedEnd();
             else listener.onKeyUp();
@@ -67,7 +71,7 @@ public class CustomKeyDownVod extends GestureDetector.SimpleOnGestureListener {
             listener.onKeyDown();
         } else if (KeyUtil.isActionUp(event) && KeyUtil.isEnterKey(event)) {
             listener.onKeyCenter();
-        } else if (event.isLongPress() && KeyUtil.isUpKey(event)) {
+        } else if (KeyUtil.isActionDown(event) && KeyUtil.isUpKey(event) && event.getRepeatCount() >= 1 && !changeSpeed) {
             listener.onSpeedUp();
             changeSpeed = true;
         }
@@ -119,11 +123,16 @@ public class CustomKeyDownVod extends GestureDetector.SimpleOnGestureListener {
 
     /** 遥控器 FF/REW 由 PlaybackService 转发（媒体键被系统路由给 MediaSession，Activity 收不到 DOWN），与方向键共用同一原生步长。 */
     public void onMediaKey(KeyEvent event, boolean forward) {
-        if (KeyUtil.isActionDown(event)) seek(event, forward);
-        else if (KeyUtil.isActionUp(event)) App.post(() -> listener.onSeekEnd(holdTime), 250);
+        if (KeyUtil.isActionDown(event)) {
+            App.removeCallbacks(seekEnd);
+            seek(event, forward);
+        } else if (KeyUtil.isActionUp(event)) {
+            App.post(seekEnd, 250);
+        }
     }
 
     public void reset() {
+        App.removeCallbacks(seekEnd);
         holdTime = 0;
     }
 

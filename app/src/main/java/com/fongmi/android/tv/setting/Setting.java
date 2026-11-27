@@ -1,8 +1,13 @@
 package com.fongmi.android.tv.setting;
 
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.os.LocaleListCompat;
+
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.github.catvod.utils.Prefers;
+
+import java.util.Locale;
 
 public class Setting {
 
@@ -116,5 +121,28 @@ public class Setting {
 
     public static void putRepeatOne(boolean repeat) {
         Prefers.put("repeat_one", repeat);
+    }
+
+    public static int getLanguage() {
+        return Math.clamp(Prefers.getInt("qbox_language", 0), 0, 1);
+    }
+
+    public static void putLanguage(int language) {
+        Prefers.put("qbox_language", Math.clamp(language, 0, 1));
+    }
+
+    public static String getLanguageTag() {
+        return getLanguage() == 1 ? "en" : "zh-CN";
+    }
+
+    public static Locale getLocale() {
+        return getLanguage() == 1 ? Locale.ENGLISH : Locale.SIMPLIFIED_CHINESE;
+    }
+
+    public static void applyLanguage() {
+        Locale locale = getLocale();
+        Locale.setDefault(locale);
+        ResUtil.updateLocale(locale);
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(getLanguageTag()));
     }
 }

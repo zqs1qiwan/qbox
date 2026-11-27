@@ -121,6 +121,7 @@ public final class DanmakuSearchDialog extends BaseBottomSheetDialog implements 
     }
 
     private void showResults(boolean empty) {
+        if (binding == null || !isAdded()) return;
         binding.progress.setVisibility(GONE);
         binding.recycler.setVisibility(empty ? GONE : VISIBLE);
         if (!empty) binding.recycler.requestFocus();
@@ -140,12 +141,14 @@ public final class DanmakuSearchDialog extends BaseBottomSheetDialog implements 
     }
 
     private void onSuccess(List<Danmaku> items) {
+        if (binding == null || !isAdded()) return;
         adapter.addAll(items);
         showResults(items.isEmpty());
         if (items.isEmpty()) Notify.show(R.string.error_empty);
     }
 
     private void onError(Exception e) {
+        if (binding == null || !isAdded()) return;
         showResults(true);
         Notify.show(TextUtils.isEmpty(e.getMessage()) ? ResUtil.getString(R.string.error_empty) : e.getMessage());
     }

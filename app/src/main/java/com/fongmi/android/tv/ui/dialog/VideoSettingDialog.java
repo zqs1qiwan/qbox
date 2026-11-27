@@ -42,9 +42,13 @@ public final class VideoSettingDialog {
 
     public static final class BottomSheet extends BaseBottomSheetDialog {
 
-        private final PlayerManager player;
+        private PlayerManager player;
         private DialogVideoSettingBinding binding;
         private VideoSettingPanel panel;
+
+        public BottomSheet() {
+            this(null);
+        }
 
         BottomSheet(PlayerManager player) {
             this.player = player;
@@ -62,6 +66,10 @@ public final class VideoSettingDialog {
 
         @Override
         protected void initView() {
+            if (player == null) {
+                dismissAllowingStateLoss();
+                return;
+            }
             panel = new VideoSettingPanel(binding, player);
             panel.bind();
         }
@@ -77,9 +85,13 @@ public final class VideoSettingDialog {
 
     public static final class SideSheet extends BaseSideSheetDialog {
 
-        private final PlayerManager player;
+        private PlayerManager player;
         private DialogVideoSettingBinding binding;
         private VideoSettingPanel panel;
+
+        public SideSheet() {
+            this(null);
+        }
 
         SideSheet(PlayerManager player) {
             this.player = player;
@@ -97,6 +109,10 @@ public final class VideoSettingDialog {
 
         @Override
         protected void initView() {
+            if (player == null) {
+                dismissAllowingStateLoss();
+                return;
+            }
             panel = new VideoSettingPanel(binding, player);
             panel.bind();
         }

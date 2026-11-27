@@ -5,13 +5,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInstaller;
 
+import com.fongmi.android.tv.BuildConfig;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.utils.Notify;
 
 /** 接收 PackageInstaller 会话的安装结果；系统需要用户确认时把确认页拉起来。 */
 public class UpdateReceiver extends BroadcastReceiver {
 
-    public static final String ACTION = "com.qbox.app.UPDATE_STATUS";
+    public static final String ACTION = BuildConfig.APPLICATION_ID + ".UPDATE_STATUS";
 
     @Override
     public void onReceive(Context context, Intent intent) {

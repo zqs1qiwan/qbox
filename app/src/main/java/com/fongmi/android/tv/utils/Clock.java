@@ -1,21 +1,32 @@
 package com.fongmi.android.tv.utils;
 
+import android.text.TextUtils;
+import android.view.View;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
 
 import com.fongmi.android.tv.App;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
-import java.util.Timer;
-import java.util.TimerTask;
 
-public class Clock {
+public class Clock implements View.OnAttachStateChangeListener {
 
     private DateTimeFormatter format;
     private Callback callback;
     private TextView view;
-    private Timer timer;
+    private boolean running;
+
+    private final Runnable tick = new Runnable() {
+        @Override
+        public void run() {
+            if (!running) return;
+            doJob();
+            if (running) App.post(this, 1000);
+        }
+    };
 
     public static Clock create() {
         return new Clock();
@@ -29,7 +40,9 @@ public class Clock {
     }
 
     public Clock view(TextView view) {
+        if (this.view != null) this.view.removeOnAttachStateChangeListener(this);
         this.view = view;
+        if (this.view != null) this.view.addOnAttachStateChangeListener(this);
         return this;
     }
 
@@ -43,32 +56,44 @@ public class Clock {
     }
 
     public void start() {
-        timer = new Timer();
-        timer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                App.post(() -> doJob());
-            }
-        }, 0, 1000);
+        stop();
+        running = true;
+        App.post(tick);
     }
 
     private void doJob() {
         try {
             long time = System.currentTimeMillis();
             if (callback != null) callback.onTimeChanged(time);
-            if (view != null) view.setText(format.format(LocalDateTime.now()));
+            if (view != null && format != null && (view.isShown() || TextUtils.isEmpty(view.getText()))) {
+                String next = format.format(LocalDateTime.now());
+                if (!TextUtils.equals(view.getText(), next)) view.setText(next);
+            }
         } catch (Exception ignored) {
         }
     }
 
     public Clock stop() {
-        if (timer != null) timer.cancel();
+        running = false;
+        App.removeCallbacks(tick);
         return this;
     }
 
     public void release() {
-        if (timer != null) timer.cancel();
-        if (callback != null) callback = null;
+        stop();
+        if (view != null) view.removeOnAttachStateChangeListener(this);
+        view = null;
+        callback = null;
+    }
+
+    @Override
+    public void onViewAttachedToWindow(@NonNull View v) {
+    }
+
+    @Override
+    public void onViewDetachedFromWindow(@NonNull View v) {
+        // 纯展示型时钟（无播放进度回调）：随视图树销毁自动停表并释放引用，杜绝 Activity/Timer 线程泄漏。
+        if (callback == null) release();
     }
 
     public interface Callback {

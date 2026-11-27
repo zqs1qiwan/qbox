@@ -30,6 +30,7 @@ import com.fongmi.android.tv.player.media.MediaItemFactory;
 import com.fongmi.android.tv.service.DLNARendererService;
 import com.fongmi.android.tv.service.PlaybackService;
 import com.fongmi.android.tv.setting.PlayerSetting;
+import com.fongmi.android.tv.setting.SpeedSetting;
 import com.fongmi.android.tv.ui.custom.CustomKeyDownVod;
 import com.fongmi.android.tv.ui.dialog.PlayerEngineDialog;
 import com.fongmi.android.tv.ui.dialog.SpeedSettingDialog;
@@ -131,6 +132,12 @@ public class CastActivity extends PlaybackActivity implements CustomKeyDownVod.L
     }
 
     private void setVideoView() {
+        if (mBinding.control.seek.getTimeBar() instanceof androidx.media3.ui.DefaultTimeBar bar) {
+            bar.setPlayedColor(0xFFFFFFFF);
+            bar.setScrubberColor(0xFFFFFFFF);
+            bar.setBufferedColor(0x66FFFFFF);
+            bar.setUnplayedColor(0x33FFFFFF);
+        }
         setSeekNextFocusDown(R.id.reset);
         setScale(scale = PlayerSetting.getScale());
         setActionFocusBoundary(mBinding.control.action.getRoot());
@@ -193,18 +200,19 @@ public class CastActivity extends PlaybackActivity implements CustomKeyDownVod.L
     }
 
     private void onReset() {
-        if (player().isEmpty()) return;
+        if (service() == null || player().isEmpty()) return;
         position = player().getPosition();
         start();
     }
 
     private void onPlayer() {
+        if (service() == null) return;
         PlayerEngineDialog.show(this, mBinding.control.action.player, player());
         hideControl();
     }
 
     private void onDecode() {
-        if (player().isEmpty()) return;
+        if (service() == null || player().isEmpty()) return;
         position = player().getPosition();
         player().toggleDecode();
     }
@@ -278,7 +286,14 @@ public class CastActivity extends PlaybackActivity implements CustomKeyDownVod.L
     }
 
     private void setR1Callback() {
+        if (isScrubbing()) return;
         App.post(mR1, Constant.INTERVAL_HIDE);
+    }
+
+    @Override
+    protected void onScrubbingChanged(boolean scrubbing) {
+        if (scrubbing) App.removeCallbacks(mR1);
+        else if (isVisible(mBinding.control.getRoot())) setR1Callback();
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -299,12 +314,13 @@ public class CastActivity extends PlaybackActivity implements CustomKeyDownVod.L
     }
 
     private void onPaused() {
-        controller().pause();
+        if (controller() != null) controller().pause();
     }
 
     private void onPlay() {
+        if (controller() == null) return;
         if (isEnded()) controller().seekTo(0);
-        if (!player().isEmpty() && isIdle()) controller().prepare();
+        if (service() != null && !player().isEmpty() && isIdle()) controller().prepare();
         controller().play();
     }
 
@@ -418,7 +434,7 @@ public class CastActivity extends PlaybackActivity implements CustomKeyDownVod.L
 
     @Override
     public void onSeeking(long time) {
-        if (player().isEmpty()) return;
+        if (service() == null || player().isEmpty()) return;
         mBinding.widget.center.setVisibility(View.VISIBLE);
         mBinding.widget.duration.setText(player().getDurationTime());
         mBinding.widget.position.setText(player().getPositionTime(time));
@@ -428,21 +444,21 @@ public class CastActivity extends PlaybackActivity implements CustomKeyDownVod.L
 
     @Override
     public void onSeekEnd(long time) {
-        if (player().isEmpty()) return;
+        if (service() == null || player().isEmpty()) return;
         mKeyDown.reset();
         seekTo(time);
     }
 
     @Override
     public void onSpeedUp() {
-        if (!player().isPlaying()) return;
+        if (service() == null || !player().isPlaying()) return;
         PlaybackAction.startSpeedPress(player(), mBinding.widget.message);
     }
 
     @Override
     public void onSpeedEnd() {
         PlaybackAction.hideSpeedHint(mBinding.widget.message);
-        player().setSpeed(1.0f);
+        if (service() != null) player().setSpeed(SpeedSetting.getPlayback());
     }
 
     @Override
@@ -457,7 +473,7 @@ public class CastActivity extends PlaybackActivity implements CustomKeyDownVod.L
 
     @Override
     public void onKeyCenter() {
-        if (player().isPlaying()) onPaused();
+        if (service() != null && player().isPlaying()) onPaused();
         else onPlay();
         hideControl();
     }

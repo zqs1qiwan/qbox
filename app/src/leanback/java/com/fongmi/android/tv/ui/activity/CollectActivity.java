@@ -72,6 +72,11 @@ public class CollectActivity extends BaseActivity {
     }
 
     @Override
+    protected boolean showBackdrop() {
+        return false;
+    }
+
+    @Override
     protected ViewBinding getBinding() {
         return mBinding = ActivityCollectBinding.inflate(getLayoutInflater());
     }
@@ -79,6 +84,7 @@ public class CollectActivity extends BaseActivity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        mViewModel.stopSearch();
         getIntent().putExtras(intent);
         mAdapter.clear();
         setPager();
@@ -152,10 +158,10 @@ public class CollectActivity extends BaseActivity {
         App.post(() -> mBinding.recycler.requestFocus(), 200);
     }
 
-    /** 从站点 tab 按下方向键直接进结果网格，避免第一次按下只把焦点丢给 pager。 */
+    /** 从站点 tab 按下方向键直接进当前页结果网格，避免第一次按下只把焦点丢给 pager。 */
     private boolean focusGrid() {
         try {
-            CollectFragment fragment = getFragment();
+            CollectFragment fragment = getCurrentFragment();
             return fragment != null && fragment.requestFocus();
         } catch (Exception e) {
             return false;
@@ -206,9 +212,16 @@ public class CollectActivity extends BaseActivity {
     private final Runnable mRunnable = new Runnable() {
         @Override
         public void run() {
+            if (mBinding == null || isFinishing() || isDestroyed()) return;
             mBinding.pager.setCurrentItem(mBinding.recycler.getSelectedPosition());
         }
     };
+
+    @Override
+    protected void onDestroy() {
+        App.removeCallbacks(mRunnable);
+        super.onDestroy();
+    }
 
     @Override
     protected void onBackInvoked() {

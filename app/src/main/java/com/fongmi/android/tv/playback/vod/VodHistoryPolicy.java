@@ -44,13 +44,15 @@ public class VodHistoryPolicy {
         if (history == null || !history.canSave() || Setting.isIncognito()) return;
         History copy = copyForSave(history);
         Task.executeSerial(() -> {
+            EpisodeProgress.flush();
             copy.merge().save();
             if (exit) RefreshEvent.history();
         });
     }
 
     public void saveProgress(History history, boolean exit, long time, long position, long duration) {
-        applyProgress(history, time, position, duration);
+        applyProgress(history, time, position, duration, false);
+        if (!Setting.isIncognito()) Task.executeSerial(EpisodeProgress::flush);
         save(history, exit);
     }
 
@@ -69,7 +71,10 @@ public class VodHistoryPolicy {
     public void saveCurrent(History history) {
         if (history == null || Setting.isIncognito()) return;
         History copy = copyForSave(history);
-        Task.executeSerial(copy::save);
+        Task.executeSerial(() -> {
+            EpisodeProgress.flush();
+            copy.save();
+        });
     }
 
     /**
@@ -105,18 +110,19 @@ public class VodHistoryPolicy {
     /** 守卫对齐 FongMi 上游：非法进度（未就绪的 position/duration）不写、也不触发冗余 saveCurrent。 */
     public void updateProgress(History history, long time, long position, long duration) {
         if (position < 0 || duration <= 0) return;
-        applyProgress(history, time, position, duration);
+        applyProgress(history, time, position, duration, false);
         if (history != null && history.canSave() && history.canScheduleSave()) saveCurrent(history);
     }
 
-    private void applyProgress(History history, long time, long position, long duration) {
+    private void applyProgress(History history, long time, long position, long duration, boolean immediatePersist) {
         if (history == null || position < 0 || duration <= 0) return;
         history.setCreateTime(time);
         history.setPosition(position);
         history.setDuration(duration);
         // 进度的真值按「集」独立保存；History.position 只是最近观看展示快照。
+        // 1s tick 只更新内存真值，落盘跟随 5s saveCurrent / 退出 saveProgress 在后台线程 flush，避免主线程每秒全量序列化 JSON。
         if (!Setting.isIncognito()) {
-            EpisodeProgress.put(history.getKey(), EpisodeProgress.episodeKey(history.getEpisodeUrl(), history.getVodRemarks()), position, duration);
+            EpisodeProgress.put(history.getKey(), EpisodeProgress.episodeKey(history.getEpisodeUrl(), history.getVodRemarks()), position, duration, immediatePersist);
         }
     }
 

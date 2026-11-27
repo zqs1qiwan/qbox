@@ -135,6 +135,7 @@ public final class SubtitleSearchDialog extends BaseBottomSheetDialog implements
     }
 
     private void showResults(boolean empty) {
+        if (binding == null || !isAdded()) return;
         binding.progress.setVisibility(GONE);
         binding.recycler.setVisibility(empty ? GONE : VISIBLE);
         if (!empty) binding.recycler.requestFocus();
@@ -199,11 +200,13 @@ public final class SubtitleSearchDialog extends BaseBottomSheetDialog implements
     }
 
     private void onSearchError(Exception e) {
+        if (binding == null || !isAdded()) return;
         scroller.endLoading(false);
         onError(e);
     }
 
     private void onSearch(SubtitleSearchPage page) {
+        if (binding == null || !isAdded()) return;
         boolean hasMore = page.getResultCount() >= SubtitleApi.SEARCH_COUNT;
         nextPos += page.getResultCount();
         scroller.endLoading(hasMore);
@@ -217,18 +220,23 @@ public final class SubtitleSearchDialog extends BaseBottomSheetDialog implements
     }
 
     private void showSearchResults() {
+        if (binding == null || !isAdded()) return;
         showResults(false);
         RecyclerView recycler = binding.recycler;
-        recycler.post(() -> scroller.checkMore(recycler));
+        recycler.post(() -> {
+            if (binding != null && isAdded()) scroller.checkMore(recycler);
+        });
     }
 
     private void showArchive(List<SubtitleSearchItem> items) {
+        if (binding == null || !isAdded()) return;
         if (items.isEmpty()) onEmpty();
         else if (items.size() == 1) applySub(items.get(0));
         else showItems(items);
     }
 
     private void showItems(List<SubtitleSearchItem> items) {
+        if (binding == null || !isAdded()) return;
         saveState();
         adapter.setItems(items);
         scroller.endLoading(false);
@@ -236,11 +244,13 @@ public final class SubtitleSearchDialog extends BaseBottomSheetDialog implements
     }
 
     private void onEmpty() {
+        if (binding == null || !isAdded()) return;
         showResults(adapter.getItemCount() == 0);
         Notify.show(R.string.error_empty);
     }
 
     private void onError(Exception e) {
+        if (binding == null || !isAdded()) return;
         showResults(adapter.getItemCount() == 0);
         Notify.show(TextUtils.isEmpty(e.getMessage()) ? ResUtil.getString(R.string.error_empty) : e.getMessage());
     }
@@ -277,7 +287,7 @@ public final class SubtitleSearchDialog extends BaseBottomSheetDialog implements
     }
 
     private boolean canCancelRequest() {
-        return binding.progress.getVisibility() == VISIBLE && adapter.getItemCount() > 0;
+        return binding != null && binding.progress.getVisibility() == VISIBLE && adapter.getItemCount() > 0;
     }
 
     @Override

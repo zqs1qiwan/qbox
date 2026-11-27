@@ -49,10 +49,14 @@ public final class SpeedSettingDialog {
 
     public static final class BottomSheet extends BaseBottomSheetDialog {
 
-        private final PlayerManager player;
-        private final boolean save;
+        private PlayerManager player;
+        private boolean save;
         private DialogSpeedSettingBinding binding;
         private SpeedSettingPanel panel;
+
+        public BottomSheet() {
+            this(null, false);
+        }
 
         BottomSheet(PlayerManager player, boolean save) {
             this.player = player;
@@ -71,6 +75,10 @@ public final class SpeedSettingDialog {
 
         @Override
         protected void initView() {
+            if (player == null) {
+                dismissAllowingStateLoss();
+                return;
+            }
             panel = new SpeedSettingPanel(binding, player, save);
             panel.bind();
         }
@@ -86,10 +94,14 @@ public final class SpeedSettingDialog {
 
     public static final class SideSheet extends BaseSideSheetDialog {
 
-        private final PlayerManager player;
-        private final boolean save;
+        private PlayerManager player;
+        private boolean save;
         private DialogSpeedSettingBinding binding;
         private SpeedSettingPanel panel;
+
+        public SideSheet() {
+            this(null, false);
+        }
 
         SideSheet(PlayerManager player, boolean save) {
             this.player = player;
@@ -108,6 +120,10 @@ public final class SpeedSettingDialog {
 
         @Override
         protected void initView() {
+            if (player == null) {
+                dismissAllowingStateLoss();
+                return;
+            }
             panel = new SpeedSettingPanel(binding, player, save);
             panel.bind();
         }

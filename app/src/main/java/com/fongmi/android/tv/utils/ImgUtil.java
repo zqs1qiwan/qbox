@@ -7,6 +7,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.ImageView;
@@ -28,16 +29,33 @@ import com.fongmi.android.tv.impl.CustomTarget;
 import com.github.catvod.utils.Json;
 import com.google.common.net.HttpHeaders;
 
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import jahirfiquitiva.libs.textdrawable.TextDrawable;
 
 public class ImgUtil {
 
-    private static final Set<String> failed = Collections.synchronizedSet(new HashSet<>());
+    private static final long FAILED_TTL_MS = 60_000L;
+    private static final int MAX_FAILED = 256;
+    private static final ConcurrentHashMap<String, Long> failed = new ConcurrentHashMap<>();
+
+    private static boolean isFailed(String url) {
+        if (url == null) return false;
+        Long ts = failed.get(url);
+        if (ts == null) return false;
+        if (System.currentTimeMillis() - ts > FAILED_TTL_MS) {
+            failed.remove(url);
+            return false;
+        }
+        return true;
+    }
+
+    private static void markFailed(String url) {
+        if (url == null) return;
+        if (failed.size() >= MAX_FAILED) failed.clear();
+        failed.put(url, System.currentTimeMillis());
+    }
 
     public static void logo(ImageView view) {
         try {
@@ -48,7 +66,8 @@ public class ImgUtil {
                 view.setImageResource(R.drawable.ic_logo);
                 return;
             }
-            Glide.with(view).load(UrlUtil.convert(logo)).override(Target.SIZE_ORIGINAL, Target.SIZE_ORIGINAL).error(R.drawable.ic_logo).into(view);
+            int cap = ResUtil.dp2px(128);
+            Glide.with(view).load(UrlUtil.convert(logo)).override(cap, cap).error(R.drawable.ic_logo).into(view);
         } catch (Throwable e) {
             e.printStackTrace();
         }
@@ -77,7 +96,7 @@ public class ImgUtil {
     public static void load(String text, String url, ImageView view, boolean vod) {
         view.setScaleType(vod ? MATRIX : FIT_CENTER);
         if (!vod) view.setVisibility(TextUtils.isEmpty(url) ? View.GONE : View.VISIBLE);
-        if (TextUtils.isEmpty(url) || failed.contains(url)) {
+        if (TextUtils.isEmpty(url) || isFailed(url)) {
             // 占位图/失败兜底用居中适配，不能套顶对齐矩阵（会把文字图标拉爆）。
             view.setScaleType(FIT_CENTER);
             view.setImageDrawable(getTextDrawable(text, vod));
@@ -103,8 +122,8 @@ public class ImgUtil {
      *   <li>水平方向如有多余则左右居中裁（宽版海报/横图）。尺寸不足的方向照常放大铺满。</li>
      * </ul>
      */
-    private static void applyTopCrop(ImageView view) {
-        Drawable d = view.getDrawable();
+    private static void applyTopCrop(ImageView view, Drawable drawable) {
+        Drawable d = drawable != null ? drawable : view.getDrawable();
         if (d == null || view.getWidth() == 0 || view.getHeight() == 0) return;
         int dw = d.getIntrinsicWidth(), dh = d.getIntrinsicHeight();
         if (dw <= 0 || dh <= 0) return;
@@ -118,16 +137,16 @@ public class ImgUtil {
     }
 
     /** 图到位时视图可能还没量完尺寸（首帧/缓存命中），等它有尺寸了再算矩阵，只等一次。 */
-    private static void postTopCrop(ImageView view) {
+    private static void postTopCrop(ImageView view, Drawable resource) {
         if (view.getWidth() > 0 && view.getHeight() > 0) {
-            applyTopCrop(view);
+            applyTopCrop(view, resource);
             return;
         }
         view.getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
             public void onGlobalLayout() {
                 view.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                applyTopCrop(view);
+                applyTopCrop(view, resource);
             }
         });
     }
@@ -157,7 +176,8 @@ public class ImgUtil {
         String src = url.substring(start + 4);
         int end = src.indexOf('&');
         if (end >= 0) src = src.substring(0, end);
-        if (src.isEmpty()) return url;
+        src = Uri.decode(src);
+        if (TextUtils.isEmpty(src)) return url;
         if (!src.startsWith("http")) src = "https://" + src;
         return src;
     }
@@ -169,16 +189,16 @@ public class ImgUtil {
 
     private static Drawable getTextDrawable(String text, boolean vod) {
         TextDrawable.Builder builder = new TextDrawable.Builder();
-        text = TextUtils.isEmpty(text) ? "！" : text.substring(0, 1);
-        if (vod) builder.buildRect(text, ColorGenerator.get400(text));
-        return builder.buildRoundRect(text, ColorGenerator.get400(text), ResUtil.dp2px(4));
+        String label = TextUtils.isEmpty(text) ? "！" : new String(Character.toChars(text.codePointAt(0)));
+        if (vod) return builder.buildRect(label, ColorGenerator.get400(label));
+        return builder.buildRoundRect(label, ColorGenerator.get400(label), ResUtil.dp2px(4));
     }
 
     private static RequestListener<Drawable> getListener(String text, String url, ImageView view, boolean vod) {
         return new RequestListener<>() {
             @Override
             public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
-                if (vod) postTopCrop(view);
+                if (vod) postTopCrop(view, resource);
                 return false;
             }
 
@@ -186,7 +206,7 @@ public class ImgUtil {
             public boolean onLoadFailed(@Nullable GlideException e, Object model, @NonNull Target<Drawable> target, boolean isFirstResource) {
                 view.setScaleType(FIT_CENTER);
                 view.setImageDrawable(getTextDrawable(text, vod));
-                failed.add(url);
+                markFailed(url);
                 return true;
             }
         };

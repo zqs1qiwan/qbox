@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Observer;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
@@ -35,6 +36,7 @@ import com.fongmi.android.tv.playback.PlaybackIntent;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.player.media.PlaySpec;
 import com.fongmi.android.tv.service.PlaybackService;
+import com.fongmi.android.tv.service.PlaybackServiceConnection;
 import com.fongmi.android.tv.setting.DanmakuSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.SubtitleSetting;
@@ -55,11 +57,11 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     private ListenableFuture<MediaController> mControllerFuture;
     private MediaController mController;
     private PlaybackService mService;
+    private PlaybackServiceConnection serviceConnection;
     private boolean initialized;
     private boolean audioOnly;
     private boolean scrubbing;
     private boolean redirect;
-    private boolean bound;
     private boolean stop;
     private boolean lock;
 
@@ -189,7 +191,7 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     }
 
     protected boolean isPaused() {
-        return mController != null && !isBuffering() && !isIdle();
+        return mController != null && !isBuffering() && !isIdle() && !isEnded() && !mController.getPlayWhenReady();
     }
 
     private boolean isPlaybackState(int state) {
@@ -266,10 +268,9 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     }
 
     private void bindPlaybackService() {
-        startService(new Intent(this, PlaybackService.class));
-        bindService(new Intent(this, PlaybackService.class).setAction(PlaybackService.LOCAL_BIND_ACTION), this, BIND_AUTO_CREATE);
+        serviceConnection = new ViewModelProvider(this).get(PlaybackServiceConnection.class);
+        serviceConnection.attach(this);
         buildControllerAsync();
-        bound = true;
     }
 
     private void buildControllerAsync() {
@@ -466,10 +467,9 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     }
 
     private void releaseBinding() {
-        if (!bound) return;
-        bound = false;
         if (mService != null) mService.removePlayerCallback(mPlayerCallback);
-        unbindService(this);
+        if (serviceConnection != null) serviceConnection.detach(this);
+        serviceConnection = null;
         mService = null;
     }
 

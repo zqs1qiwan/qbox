@@ -103,7 +103,7 @@ jobs:
           # 单测报告存档，失败时也能看到哪个用例红
           find app/build/reports/tests -name '*.html' | head -n 20 || true
 
-      - name: Build ARM Debug APKs for real TV
+      - name: Build ARM Debug APKs for real TV and Mobile/Pad
         shell: bash
         timeout-minutes: 45
         run: |
@@ -115,12 +115,13 @@ jobs:
             if ./gradlew \
               :app:assembleLeanbackArmeabi_v7aDebug \
               :app:assembleLeanbackArm64_v8aDebug \
+              :app:assembleMobileArm64_v8aDebug \
               --console=plain --no-daemon; then success=1; break; fi
             echo "::warning::ARM gradle failed, retrying in 10s..."
             sleep 10
           done
           [ "$success" -eq 1 ] || { echo "::error::ARM build failed after 3 attempts"; exit 1; }
-          ls -lh app/build/outputs/apk/leanbackArmeabi_v7a/debug/*.apk app/build/outputs/apk/leanbackArm64_v8a/debug/*.apk
+          ls -lh app/build/outputs/apk/leanbackArmeabi_v7a/debug/*.apk app/build/outputs/apk/leanbackArm64_v8a/debug/*.apk app/build/outputs/apk/mobileArm64_v8a/debug/*.apk
 
       - name: Verify TV debug APKs
         uses: ./.github/actions/verify-apk
@@ -134,6 +135,14 @@ jobs:
         uses: ./.github/actions/verify-apk
         with:
           apk_glob: 'app/build/outputs/apk/leanbackArm64_v8a/debug/*.apk'
+          require_abi: arm64-v8a
+          expected_sha256: ${{ env.DEBUG_CERT_SHA256 }}
+          out_dir: artifacts/apk
+
+      - name: Verify mobile arm64 debug APK
+        uses: ./.github/actions/verify-apk
+        with:
+          apk_glob: 'app/build/outputs/apk/mobileArm64_v8a/debug/*.apk'
           require_abi: arm64-v8a
           expected_sha256: ${{ env.DEBUG_CERT_SHA256 }}
           out_dir: artifacts/apk
@@ -328,14 +337,16 @@ jobs:
             if ./gradlew \
               :app:assembleLeanbackArm64_v8aRelease \
               :app:assembleLeanbackArmeabi_v7aRelease \
+              :app:assembleMobileArm64_v8aRelease \
+              :app:assembleMobileArmeabi_v7aRelease \
               --console=plain --no-daemon; then success=1; break; fi
             echo "::warning::release gradle failed, retrying in 10s..."
             sleep 10
           done
           [ "$success" -eq 1 ] || { echo "::error::release build failed after 3 attempts"; exit 1; }
-          ls -lh app/build/outputs/apk/leanbackArm64_v8a/release/*.apk app/build/outputs/apk/leanbackArmeabi_v7a/release/*.apk
+          ls -lh app/build/outputs/apk/leanbackArm64_v8a/release/*.apk app/build/outputs/apk/leanbackArmeabi_v7a/release/*.apk app/build/outputs/apk/mobileArm64_v8a/release/*.apk app/build/outputs/apk/mobileArmeabi_v7a/release/*.apk
 
-      - name: Verify release APK (arm64)
+      - name: Verify release APK (TV arm64)
         uses: ./.github/actions/verify-apk
         with:
           apk_glob: 'app/build/outputs/apk/leanbackArm64_v8a/release/*.apk'
@@ -343,10 +354,26 @@ jobs:
           expected_sha256: 84071cd236bbf7a94234cbbaa1af7c849616f2ddbb13800dba61d087c0caa098
           out_dir: artifacts/apk
 
-      - name: Verify release APK (v7a)
+      - name: Verify release APK (TV v7a)
         uses: ./.github/actions/verify-apk
         with:
           apk_glob: 'app/build/outputs/apk/leanbackArmeabi_v7a/release/*.apk'
+          require_abi: armeabi-v7a
+          expected_sha256: 84071cd236bbf7a94234cbbaa1af7c849616f2ddbb13800dba61d087c0caa098
+          out_dir: artifacts/apk
+
+      - name: Verify release APK (Mobile/Pad arm64)
+        uses: ./.github/actions/verify-apk
+        with:
+          apk_glob: 'app/build/outputs/apk/mobileArm64_v8a/release/*.apk'
+          require_abi: arm64-v8a
+          expected_sha256: 84071cd236bbf7a94234cbbaa1af7c849616f2ddbb13800dba61d087c0caa098
+          out_dir: artifacts/apk
+
+      - name: Verify release APK (Mobile/Pad v7a)
+        uses: ./.github/actions/verify-apk
+        with:
+          apk_glob: 'app/build/outputs/apk/mobileArmeabi_v7a/release/*.apk'
           require_abi: armeabi-v7a
           expected_sha256: 84071cd236bbf7a94234cbbaa1af7c849616f2ddbb13800dba61d087c0caa098
           out_dir: artifacts/apk
@@ -365,10 +392,17 @@ jobs:
         shell: bash
         run: |
           set -e
-          cp app/build/outputs/apk/leanbackArm64_v8a/release/*.apk "dist/QBox-${VERSION_NAME}-arm64-v8a.apk"
-          cp app/build/outputs/apk/leanbackArmeabi_v7a/release/*.apk "dist/QBox-${VERSION_NAME}-armeabi-v7a.apk"
-          cp "dist/QBox-${VERSION_NAME}-arm64-v8a.apk" dist/QBox-latest-arm64-v8a.apk
-          cp "dist/QBox-${VERSION_NAME}-armeabi-v7a.apk" dist/QBox-latest-armeabi-v7a.apk
+          cp app/build/outputs/apk/leanbackArm64_v8a/release/*.apk "dist/QBox-${VERSION_NAME}-tv-arm64-v8a.apk"
+          cp app/build/outputs/apk/leanbackArmeabi_v7a/release/*.apk "dist/QBox-${VERSION_NAME}-tv-armeabi-v7a.apk"
+          cp app/build/outputs/apk/mobileArm64_v8a/release/*.apk "dist/QBox-${VERSION_NAME}-mobile-arm64-v8a.apk"
+          cp app/build/outputs/apk/mobileArmeabi_v7a/release/*.apk "dist/QBox-${VERSION_NAME}-mobile-armeabi-v7a.apk"
+          cp "dist/QBox-${VERSION_NAME}-tv-arm64-v8a.apk" dist/QBox-latest-tv-arm64-v8a.apk
+          cp "dist/QBox-${VERSION_NAME}-tv-armeabi-v7a.apk" dist/QBox-latest-tv-armeabi-v7a.apk
+          cp "dist/QBox-${VERSION_NAME}-mobile-arm64-v8a.apk" dist/QBox-latest-mobile-arm64-v8a.apk
+          cp "dist/QBox-${VERSION_NAME}-mobile-armeabi-v7a.apk" dist/QBox-latest-mobile-armeabi-v7a.apk
+          # 兼容 2.0.5 旧版 TV Updater（按 QBox-<ver>-<abi>.apk 匹配），防止退回匹配到 -mobile- 包。
+          cp "dist/QBox-${VERSION_NAME}-tv-arm64-v8a.apk" "dist/QBox-${VERSION_NAME}-arm64-v8a.apk"
+          cp "dist/QBox-${VERSION_NAME}-tv-armeabi-v7a.apk" "dist/QBox-${VERSION_NAME}-armeabi-v7a.apk"
           (cd dist && sha256sum *.apk *.zip > SHA256SUMS.txt)
           cat dist/SHA256SUMS.txt
           ls -lh dist/
@@ -401,6 +435,8 @@ jobs:
           path: |
             app/build/outputs/apk/leanbackArm64_v8a/release/*.apk
             app/build/outputs/apk/leanbackArmeabi_v7a/release/*.apk
+            app/build/outputs/apk/mobileArm64_v8a/release/*.apk
+            app/build/outputs/apk/mobileArmeabi_v7a/release/*.apk
             dist/*.zip
             artifacts/apk/SHA256SUMS
           if-no-files-found: warn

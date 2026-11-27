@@ -54,10 +54,11 @@ public class UpdateDialog extends BaseAlertDialog {
 
     @Override
     protected void initView() {
+        setCancelable(false);
         binding.version.setText(title);
         binding.desc.setText(desc);
         // 遥控器：默认聚焦「更新」，避免焦点落在说明文字上按不到按钮。
-        binding.getRoot().post(() -> binding.confirm.requestFocus());
+        binding.getRoot().post(() -> { if (binding != null && isAdded()) binding.confirm.requestFocus(); });
     }
 
     @Override
@@ -67,6 +68,7 @@ public class UpdateDialog extends BaseAlertDialog {
     }
 
     public void setProgress(int progress) {
+        if (binding == null || !isAdded()) return;
         binding.confirm.setText(String.format(Locale.getDefault(), "%1$d%%", progress));
     }
 

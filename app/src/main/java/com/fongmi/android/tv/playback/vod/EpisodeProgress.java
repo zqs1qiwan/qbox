@@ -37,6 +37,7 @@ public final class EpisodeProgress {
     private static final int MAX_VODS = 300;
 
     private static Store store;
+    private static boolean dirty;
 
     private EpisodeProgress() {
     }
@@ -67,6 +68,10 @@ public final class EpisodeProgress {
     }
 
     public static synchronized void put(String historyKey, String episode, long position, long duration) {
+        put(historyKey, episode, position, duration, true);
+    }
+
+    public static synchronized void put(String historyKey, String episode, long position, long duration, boolean immediatePersist) {
         if (historyKey == null || episode == null || position < 0) return;
         load();
         Map<String, Item> episodes = store.vods.computeIfAbsent(historyKey, k -> new LinkedHashMap<>());
@@ -76,6 +81,12 @@ public final class EpisodeProgress {
         item.time = System.currentTimeMillis();
         trimEpisodes(episodes);
         trimVods();
+        dirty = true;
+        if (immediatePersist) persist();
+    }
+
+    public static synchronized void flush() {
+        if (!dirty || store == null) return;
         persist();
     }
 
@@ -218,6 +229,7 @@ public final class EpisodeProgress {
             }
             root.add("vods", vods);
             Prefers.put(KEY, root.toString());
+            dirty = false;
         } catch (Exception ignored) {
             // 存储不可用时退化为进程内记忆，不让播放链路崩溃。
         }

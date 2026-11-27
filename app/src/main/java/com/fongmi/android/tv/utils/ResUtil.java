@@ -2,6 +2,7 @@ package com.fongmi.android.tv.utils;
 
 import android.content.Context;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Paint;
 import android.graphics.Rect;
@@ -24,7 +25,37 @@ import androidx.core.content.ContextCompat;
 
 import com.fongmi.android.tv.App;
 
+import java.util.Locale;
+
 public class ResUtil {
+
+    private static volatile Locale sLocale;
+    private static volatile Resources sLocaleResources;
+
+    public static void updateLocale(Locale locale) {
+        sLocale = locale;
+        sLocaleResources = null;
+        App app = App.get();
+        if (app == null || locale == null) return;
+        Resources res = app.getResources();
+        Configuration config = new Configuration(res.getConfiguration());
+        config.setLocale(locale);
+        res.updateConfiguration(config, res.getDisplayMetrics());
+    }
+
+    public static Resources getResources() {
+        App app = App.get();
+        Resources base = app.getResources();
+        Locale locale = sLocale;
+        if (locale == null) return base;
+        Locale current = base.getConfiguration().getLocales().isEmpty() ? null : base.getConfiguration().getLocales().get(0);
+        if (locale.equals(current)) return base;
+        Resources cached = sLocaleResources;
+        if (cached != null) return cached;
+        Configuration config = new Configuration(base.getConfiguration());
+        config.setLocale(locale);
+        return sLocaleResources = app.createConfigurationContext(config).getResources();
+    }
 
     public static DisplayMetrics getDisplayMetrics() {
         return getDisplayMetrics(App.get());
@@ -91,23 +122,27 @@ public class ResUtil {
     }
 
     public static int dp2px(int dp) {
-        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, getDisplayMetrics());
+        return dp2px(App.get(), dp);
+    }
+
+    public static int dp2px(Context context, int dp) {
+        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, getDisplayMetrics(context));
     }
 
     public static String getString(@StringRes int resId) {
-        return App.get().getResources().getString(resId);
+        return getResources().getString(resId);
     }
 
     public static String getString(@StringRes int resId, Object... formatArgs) {
-        return App.get().getResources().getString(resId, formatArgs);
+        return getResources().getString(resId, formatArgs);
     }
 
     public static String[] getStringArray(@ArrayRes int resId) {
-        return App.get().getResources().getStringArray(resId);
+        return getResources().getStringArray(resId);
     }
 
     public static TypedArray getTypedArray(@ArrayRes int resId) {
-        return App.get().getResources().obtainTypedArray(resId);
+        return getResources().obtainTypedArray(resId);
     }
 
     public static Drawable getDrawable(@DrawableRes int resId) {

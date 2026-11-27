@@ -93,6 +93,7 @@ public class Download {
             byte[] buffer = new byte[16384];
             int readBytes;
             long totalBytes = 0;
+            int lastProgress = -1;
             while ((readBytes = input.read(buffer)) != -1) {
                 if (canceled || Thread.currentThread().isInterrupted()) throw new InterruptedIOException("Download canceled");
                 totalBytes += readBytes;
@@ -100,7 +101,10 @@ public class Download {
                 os.write(buffer, 0, readBytes);
                 if (length <= 0) continue;
                 int progress = (int) (totalBytes / length * 100.0);
-                if (callback != null) App.post(() -> { if (!canceled) callback.progress(progress); });
+                if (progress != lastProgress) {
+                    lastProgress = progress;
+                    if (callback != null) App.post(() -> { if (!canceled) callback.progress(progress); });
+                }
             }
             if (canceled || Thread.currentThread().isInterrupted()) throw new InterruptedIOException("Download canceled");
         }

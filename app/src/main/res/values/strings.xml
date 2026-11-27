@@ -281,6 +281,9 @@
     <string name="setting_theme_color">Theme color</string>
     <string name="setting_custom">Custom</string>
     <string name="setting_size">Image size</string>
+    <string name="setting_language">Language</string>
+    <string name="setting_language_zh">简体中文</string>
+    <string name="setting_language_en">English</string>
     <string name="setting_doh">DoH</string>
     <string name="setting_cache">Cache</string>
     <string name="setting_backup">Backup</string>
@@ -356,7 +359,8 @@
     <string name="error_play_parse">Unable to parse url</string>
     <string name="error_play_drm">This device does not support the required DRM scheme</string>
     <string name="error_play_url">Unable to load url</string>
-    <string name="error_play_timeout">Timed out</string><string name="error_audio_effect_unsupported">Audio settings are unavailable for the current playback mode</string>
+    <string name="error_play_timeout">Timed out</string>
+    <string name="error_audio_effect_unsupported">Audio settings are unavailable for the current playback mode</string>
     <string name="error_audio_effect_passthrough">Audio settings are unavailable for passthrough audio</string>
     <string name="error_audio_effect_apply">Unable to apply audio settings</string>
     <string name="error_video_effect_unsupported">Video settings are unavailable for the current playback mode</string>
@@ -367,15 +371,15 @@
     <string name="error_play_tvbus">Error code: <xliff:g name="name">%s</xliff:g></string>
     <string name="error_detail">No play data</string>
     <string name="error_empty">Nothing here 👀</string>
-    <string name="empty_hint">换个分类，或按返回上一级</string>
-    <string name="tip_switch_source">可以按「换源」换一条线路，或返回重新选片</string>
-    <string name="keep_delete_hint">按 OK 删除当前收藏 · 按 BACK 取消</string>
-    <string name="play_repeat_on">：开</string>
-    <string name="play_repeat_off">：关</string>
-    <string name="play_speed_toast">倍速 %1$sx</string>
-    <string name="home_retry_failed">首页内容加载失败，可在设置里换源或稍后重进</string>
-    <string name="home_exit_again">再按一次返回退出 QBox</string>
-    <string name="keep_empty">还没有收藏内容，在详情页点「收藏」加入</string>
+    <string name="empty_hint">Try another category, or press Back</string>
+    <string name="tip_switch_source">Use "Switch Source" to try another line, or go back</string>
+    <string name="keep_delete_hint">Press OK to remove · Press BACK to cancel</string>
+    <string name="play_repeat_on">: On</string>
+    <string name="play_repeat_off">: Off</string>
+    <string name="play_speed_toast">Speed %1$sx</string>
+    <string name="home_retry_failed">Failed to load home content. Switch source in Settings or retry later.</string>
+    <string name="home_exit_again">Press Back again to exit QBox</string>
+    <string name="keep_empty">No favorites yet. Open a detail page and select Favorite.</string>
 
     <!-- Update -->
     <string name="update_version">New version <xliff:g name="name">%s</xliff:g></string>

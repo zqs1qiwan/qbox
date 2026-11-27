@@ -76,6 +76,10 @@ public class EpisodeInfo {
         /** 识别出的季/集编号（无季 = 1）；识别不出为 0。 */
         public final int season;
         public final int episode;
+        private final String resolution;
+        private final String dynamicRange;
+        private final String channel;
+        private final String codecTail;
 
         Item(String raw, String label, String tail, String badge, long time) {
             this(raw, label, "", tail, badge, time, 0, 0);
@@ -90,6 +94,10 @@ public class EpisodeInfo {
             this.time = time;
             this.season = season;
             this.episode = episode;
+            this.resolution = computeResolution(badge);
+            this.dynamicRange = computeDynamicRange(badge);
+            this.channel = computeChannel(tail, badge);
+            this.codecTail = computeCodecTail(tail);
         }
 
         public boolean hasTime() {
@@ -102,12 +110,30 @@ public class EpisodeInfo {
 
         /** 右上角标第一排：分辨率（badge 第一行，4K/FHD/HD/SD）。纯派生，不改变 badge 字段。 */
         public String resolution() {
-            int nl = badge.indexOf('\n');
-            return nl < 0 ? badge : badge.substring(0, nl);
+            return resolution;
         }
 
         /** 右上角标第二排：动态范围/画质（badge 第二行去掉 ATMOS；ATMOS 归右下声道区）。 */
         public String dynamicRange() {
+            return dynamicRange;
+        }
+
+        /** 右下角固定声道：tail 里的数字声道/多声道 + badge 里的 ATMOS。 */
+        public String channel() {
+            return channel;
+        }
+
+        /** 滚动名称尾部：tail 去掉声道段（保留 H265/AAC 等编码），避免与右下声道重复。 */
+        public String codecTail() {
+            return codecTail;
+        }
+
+        private static String computeResolution(String badge) {
+            int nl = badge.indexOf('\n');
+            return nl < 0 ? badge : badge.substring(0, nl);
+        }
+
+        private static String computeDynamicRange(String badge) {
             int nl = badge.indexOf('\n');
             if (nl < 0) return "";
             StringBuilder sb = new StringBuilder();
@@ -119,16 +145,14 @@ public class EpisodeInfo {
             return sb.toString();
         }
 
-        /** 右下角固定声道：tail 里的数字声道/多声道 + badge 里的 ATMOS。 */
-        public String channel() {
+        private static String computeChannel(String tail, String badge) {
             String c = "";
             for (String part : tail.split("·")) if (CHANNEL_TOKEN.matcher(part).matches()) c = part;
             boolean atmos = badge.contains("ATMOS");
             return join(c, atmos ? "ATMOS" : "");
         }
 
-        /** 滚动名称尾部：tail 去掉声道段（保留 H265/AAC 等编码），避免与右下声道重复。 */
-        public String codecTail() {
+        private static String computeCodecTail(String tail) {
             StringBuilder sb = new StringBuilder();
             for (String part : tail.split("·")) {
                 if (part.isEmpty() || CHANNEL_TOKEN.matcher(part).matches()) continue;

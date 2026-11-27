@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.text.DecimalFormat;
 import java.util.Enumeration;
+import java.util.Locale;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
@@ -143,6 +144,9 @@ public class FileUtil {
     }
 
     private static String getMimeType(String fileName) {
+        if (!TextUtils.isEmpty(fileName) && fileName.toLowerCase(Locale.ROOT).endsWith(".apk")) {
+            return "application/vnd.android.package-archive";
+        }
         String mimeType = URLConnection.guessContentTypeFromName(fileName);
         return TextUtils.isEmpty(mimeType) ? "*/*" : mimeType;
     }

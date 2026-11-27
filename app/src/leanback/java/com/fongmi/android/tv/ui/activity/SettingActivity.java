@@ -65,6 +65,11 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     }
 
     @Override
+    protected boolean showBackdrop() {
+        return false;
+    }
+
+    @Override
     protected ViewBinding getBinding() {
         return mBinding = ActivitySettingBinding.inflate(getLayoutInflater());
     }
@@ -84,9 +89,12 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     }
 
     private void setOtherText() {
-        mBinding.dohText.setText(getDohList()[getDohIndex()]);
+        String[] dohs = getDohList();
+        if (dohs.length > 0) mBinding.dohText.setText(dohs[Math.min(getDohIndex(), dohs.length - 1)]);
         mBinding.incognitoText.setText(Setting.getSwitch(Setting.isIncognito()));
-        mBinding.sizeText.setText((size = ResUtil.getStringArray(R.array.select_size))[PlayerSetting.getSize()]);
+        size = ResUtil.getStringArray(R.array.select_size);
+        if (size.length > 0) mBinding.sizeText.setText(size[Math.clamp(PlayerSetting.getSize(), 0, size.length - 1)]);
+        mBinding.languageText.setText(Setting.getLanguage() == 1 ? R.string.setting_language_en : R.string.setting_language_zh);
     }
 
     private void setCacheText() {
@@ -104,6 +112,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.doh.setOnClickListener(this::setDoh);
         mBinding.live.setOnClickListener(this::onLive);
         mBinding.size.setOnClickListener(this::setSize);
+        mBinding.language.setOnClickListener(this::setLanguage);
         mBinding.cache.setOnClickListener(this::onCache);
         mBinding.backup.setOnClickListener(this::onBackup);
         mBinding.player.setOnClickListener(this::onPlayer);
@@ -122,7 +131,9 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     @Override
     public void setConfig(Config config) {
         if (config.getUrl().startsWith("file")) {
-            PermissionUtil.requestFile(this, allGranted -> load(config));
+            PermissionUtil.requestFile(this, allGranted -> {
+                if (allGranted) load(config);
+            });
         } else {
             load(config);
         }
@@ -228,6 +239,13 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         RefreshEvent.size();
     }
 
+    private void setLanguage(View view) {
+        int next = Setting.getLanguage() == 1 ? 0 : 1;
+        Setting.putLanguage(next);
+        mBinding.languageText.setText(next == 1 ? R.string.setting_language_en : R.string.setting_language_zh);
+        Setting.applyLanguage();
+    }
+
     private void setDoh(View view) {
         DohDialog.create().index(getDohIndex()).show(this);
     }
@@ -249,33 +267,39 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     }
 
     private void onBackup(View view) {
-        PermissionUtil.requestFile(this, allGranted -> AppDatabase.backup(new Callback() {
-            @Override
-            public void success() {
-                Notify.show(R.string.backup_success);
-            }
+        PermissionUtil.requestFile(this, allGranted -> {
+            if (!allGranted) return;
+            AppDatabase.backup(new Callback() {
+                @Override
+                public void success() {
+                    Notify.show(R.string.backup_success);
+                }
 
-            @Override
-            public void error() {
-                Notify.show(R.string.backup_fail);
-            }
-        }));
+                @Override
+                public void error() {
+                    Notify.show(R.string.backup_fail);
+                }
+            });
+        });
     }
 
     private void onRestore(View view) {
-        PermissionUtil.requestFile(this, allGranted -> RestoreDialog.create().callback(new Callback() {
-            @Override
-            public void success() {
-                Notify.show(R.string.restore_success);
-                setOtherText();
-                initConfig();
-            }
+        PermissionUtil.requestFile(this, allGranted -> {
+            if (!allGranted) return;
+            RestoreDialog.create().callback(new Callback() {
+                @Override
+                public void success() {
+                    Notify.show(R.string.restore_success);
+                    setOtherText();
+                    initConfig();
+                }
 
-            @Override
-            public void error() {
-                Notify.show(R.string.restore_fail);
-            }
-        }).show(this));
+                @Override
+                public void error() {
+                    Notify.show(R.string.restore_fail);
+                }
+            }).show(this);
+        });
     }
 
     private void initConfig() {

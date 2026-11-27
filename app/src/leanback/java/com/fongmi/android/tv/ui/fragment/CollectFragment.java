@@ -78,6 +78,7 @@ public class CollectFragment extends BaseFragment implements CustomScroller.Call
         CustomSelector selector = new CustomSelector();
         selector.addPresenter(ListRow.class, new CustomRowPresenter(16), VodPresenter.class);
         mBinding.recycler.setAdapter(new ItemBridgeAdapter(mAdapter = new ArrayObjectAdapter(selector)));
+        mBinding.recycler.setItemViewCacheSize(8);
         mBinding.recycler.addOnScrollListener(mScroller = new CustomScroller(this));
         mBinding.recycler.setHeader(getActivity(), R.id.result, R.id.recycler);
         // 搜索结果页保持标题 + 站点 tab 常驻，不随下移收起：
@@ -100,7 +101,7 @@ public class CollectFragment extends BaseFragment implements CustomScroller.Call
 
     private void setViewModel() {
         mViewModel = new ViewModelProvider(this).get(SiteViewModel.class);
-        mViewModel.getResult().observe(this, result -> {
+        mViewModel.getResult().observe(getViewLifecycleOwner(), result -> {
             mScroller.endLoading(result);
             addVideo(result.getList());
         });

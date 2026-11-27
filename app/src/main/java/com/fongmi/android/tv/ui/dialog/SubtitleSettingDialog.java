@@ -49,10 +49,14 @@ public final class SubtitleSettingDialog {
 
     public static final class BottomSheet extends BaseBottomSheetDialog {
 
-        private final SubtitleView subtitleView;
-        private final PlayerManager player;
+        private SubtitleView subtitleView;
+        private PlayerManager player;
         private DialogSubtitleSettingBinding binding;
         private SubtitleSettingPanel panel;
+
+        public BottomSheet() {
+            this(null, null);
+        }
 
         BottomSheet(SubtitleView subtitleView, PlayerManager player) {
             this.subtitleView = subtitleView;
@@ -71,6 +75,10 @@ public final class SubtitleSettingDialog {
 
         @Override
         protected void initView() {
+            if (player == null || subtitleView == null) {
+                dismissAllowingStateLoss();
+                return;
+            }
             panel = new SubtitleSettingPanel(binding, subtitleView, player);
             panel.bind();
         }
@@ -92,10 +100,14 @@ public final class SubtitleSettingDialog {
 
     public static final class SideSheet extends BaseSideSheetDialog {
 
-        private final SubtitleView subtitleView;
-        private final PlayerManager player;
+        private SubtitleView subtitleView;
+        private PlayerManager player;
         private DialogSubtitleSettingBinding binding;
         private SubtitleSettingPanel panel;
+
+        public SideSheet() {
+            this(null, null);
+        }
 
         SideSheet(SubtitleView subtitleView, PlayerManager player) {
             this.subtitleView = subtitleView;
@@ -114,6 +126,10 @@ public final class SubtitleSettingDialog {
 
         @Override
         protected void initView() {
+            if (player == null || subtitleView == null) {
+                dismissAllowingStateLoss();
+                return;
+            }
             panel = new SubtitleSettingPanel(binding, subtitleView, player);
             panel.bind();
         }

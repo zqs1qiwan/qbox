@@ -25,13 +25,16 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <!-- 识别到的时间/集数：固定宽度、不滚动 -->
+        <!-- 识别到的时间/集数：固定宽度、不滚动；无前缀时 GONE 同时把右侧间距一起让掉 -->
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/prefix"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
             android:duplicateParentState="true"
+            android:ellipsize="end"
             android:maxLines="1"
+            android:maxWidth="140dp"
             android:singleLine="true"
             android:textColor="@color/text"
             android:textSize="15sp"
@@ -44,7 +47,6 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="6dp"
             android:ellipsize="marquee"
             android:marqueeRepeatLimit="marquee_forever"
             android:scrollHorizontally="true"

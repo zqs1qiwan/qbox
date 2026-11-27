@@ -57,16 +57,18 @@ public class PreloadDialog extends BaseAlertDialog {
             if (fromUser) ((SettingPreloadActivity) requireActivity()).setPreload(type, Math.round(SliderUtil.snap(slider, value)));
         });
         binding.slider.setOnKeyListener((view, keyCode, event) -> {
-            boolean enter = KeyUtil.isEnterKey(event);
-            if (enter) dismiss();
-            return enter;
+            if (!KeyUtil.isEnterKey(event)) return false;
+            if (KeyUtil.isActionUp(event)) dismiss();
+            return true;
         });
     }
 
     @Override
     public void onStart() {
         super.onStart();
-        getDialog().getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        if (getDialog() != null && getDialog().getWindow() != null) {
+            getDialog().getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
     }
 
     private int getMin() {

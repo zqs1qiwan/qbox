@@ -64,6 +64,10 @@ public class Updater implements Download.Callback, UpdateListener {
         return BuildConfig.FLAVOR_abi.replace('_', '-');
     }
 
+    private String getMode() {
+        return "leanback".equals(BuildConfig.FLAVOR_mode) ? "tv" : "mobile";
+    }
+
     public void start(FragmentActivity activity) {
         if (activity == null || activity.isFinishing()) return;
         // 调试版不自动弹更新，避免开发时被 latest 反复打断；设置页手动检查仍然可用。
@@ -88,7 +92,11 @@ public class Updater implements Download.Callback, UpdateListener {
             } catch (Throwable ignored) {
             }
         }
-        if (TextUtils.isEmpty(version) || !isNewer(version)) {
+        if (TextUtils.isEmpty(version)) {
+            if (force) App.post(() -> Notify.show(R.string.update_failed));
+            return;
+        }
+        if (!isNewer(version)) {
             if (force) App.post(() -> Notify.show(R.string.update_latest));
             return;
         }
@@ -108,9 +116,15 @@ public class Updater implements Download.Callback, UpdateListener {
     }
 
     private String findAsset(JSONArray assets, String version) {
+        return selectAssetUrl(assets, version, getMode(), getAbi());
+    }
+
+    static String selectAssetUrl(JSONArray assets, String version, String mode, String abi) {
         if (assets == null) return null;
-        String abi = getAbi();
-        String wanted = "QBox-" + cleanTag(version) + "-" + abi + ".apk";
+        String cleanVersion = cleanTagStatic(version);
+        String wanted = "QBox-" + cleanVersion + "-" + mode + "-" + abi + ".apk";
+        String legacyWanted = "tv".equals(mode) ? "QBox-" + cleanVersion + "-" + abi + ".apk" : null;
+        String legacyMatch = null;
         String fallback = null;
         for (int i = 0; i < assets.length(); i++) {
             JSONObject item = assets.optJSONObject(i);
@@ -119,16 +133,27 @@ public class Updater implements Download.Callback, UpdateListener {
             if (!name.endsWith(".apk")) continue;
             String browser = item.optString("browser_download_url");
             if (name.equalsIgnoreCase(wanted)) return browser;
-            if (fallback == null && name.contains(abi)) fallback = browser;
+            if (legacyWanted != null && name.equalsIgnoreCase(legacyWanted)) legacyMatch = browser;
+            String lower = name.toLowerCase(java.util.Locale.ROOT);
+            boolean isMobileAsset = lower.contains("-mobile-") || lower.contains("mobile");
+            if ("mobile".equals(mode)) {
+                if (fallback == null && isMobileAsset && lower.contains(abi)) fallback = browser;
+            } else {
+                if (fallback == null && !isMobileAsset && lower.contains(abi)) fallback = browser;
+            }
         }
-        return fallback;
+        return legacyMatch != null ? legacyMatch : fallback;
     }
 
     private String buildUrl(String version) {
-        return "https://github.com/" + REPO + "/releases/download/" + version + "/QBox-" + cleanTag(version) + "-" + getAbi() + ".apk";
+        return "https://github.com/" + REPO + "/releases/download/" + version + "/QBox-" + cleanTag(version) + "-" + getMode() + "-" + getAbi() + ".apk";
     }
 
     private String cleanTag(String tag) {
+        return cleanTagStatic(tag);
+    }
+
+    private static String cleanTagStatic(String tag) {
         return tag == null ? "" : tag.trim().replaceFirst("^[vV]", "");
     }
 
@@ -157,7 +182,7 @@ public class Updater implements Download.Callback, UpdateListener {
     }
 
     private void show(FragmentActivity activity, String version, String desc) {
-        if (activity == null || activity.isFinishing()) return;
+        if (activity == null || activity.isFinishing() || activity.isDestroyed() || activity.getSupportFragmentManager().isStateSaved()) return;
         dismiss();
         String text = clean(desc);
         dialog = UpdateDialog.create()
@@ -212,7 +237,6 @@ public class Updater implements Download.Callback, UpdateListener {
 
     @Override
     public void onCancel(View view) {
-        Setting.putUpdate(false);
         if (download != null) download.cancel();
         dismiss();
     }
@@ -238,7 +262,7 @@ public class Updater implements Download.Callback, UpdateListener {
     @Override
     public void success(File file) {
         dismiss();
-        install(file);
+        Task.submit(() -> install(file));
     }
 
     /**
@@ -246,12 +270,13 @@ public class Updater implements Download.Callback, UpdateListener {
      * （部分电视盒子的 InstallStart 会直接报「应用未安装」）。
      */
     private void install(File file) {
+        PackageInstaller.Session session = null;
         try {
             PackageInstaller installer = App.get().getPackageManager().getPackageInstaller();
             PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
             params.setAppPackageName(App.get().getPackageName());
             int id = installer.createSession(params);
-            PackageInstaller.Session session = installer.openSession(id);
+            session = installer.openSession(id);
             try (FileInputStream in = new FileInputStream(file);
                  OutputStream out = session.openWrite("qbox", 0, file.length())) {
                 byte[] buffer = new byte[65536];
@@ -264,11 +289,17 @@ public class Updater implements Download.Callback, UpdateListener {
             int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE;
             PendingIntent pending = PendingIntent.getBroadcast(App.get(), id, intent, flags);
             session.commit(pending.getIntentSender());
-            session.close();
         } catch (Throwable e) {
             e.printStackTrace();
             // 极少数 ROM 的会话接口不可用，退回系统安装器。
-            FileUtil.openFile(file);
+            App.post(() -> FileUtil.openFile(file));
+        } finally {
+            if (session != null) {
+                try {
+                    session.close();
+                } catch (Throwable ignored) {
+                }
+            }
         }
     }
 }

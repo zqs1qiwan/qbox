@@ -47,14 +47,21 @@ public class VodActivity extends BaseActivity implements TypeAdapter.OnClickList
     private String mBackdropUrl;
     private String mFallbackPic;
 
-    /** 当前聚焦海报的 24px 缩略图放大成氛围底图，切页/滚动都不再露黑底。 */
-    private final Runnable mBackdropTask = new Runnable() {
-        @Override
-        public void run() {
-            updateBackdrop();
-            App.post(this, 600);
-        }
+    /** 当前聚焦海报的氛围底图（由焦点变化/翻页驱动，取代 600ms 常驻轮询）。 */
+    private final Runnable mBackdropTask = () -> {
+        if (mBinding == null || isFinishing() || isDestroyed()) return;
+        updateBackdrop();
     };
+
+    private final android.view.ViewTreeObserver.OnGlobalFocusChangeListener mGlobalFocusListener = (o, f) -> {
+        updateNavScrim(f);
+        App.post(mBackdropTask, 180);
+    };
+
+    @Override
+    protected boolean showBackdrop() {
+        return false;
+    }
 
     public static void start(Activity activity, Result result) {
         start(activity, VodConfig.get().getHome().getKey(), result, -1);
@@ -97,7 +104,9 @@ public class VodActivity extends BaseActivity implements TypeAdapter.OnClickList
     @Override
     protected void initView(Bundle savedInstanceState) {
         mBinding.back.setOnClickListener(v -> finish());
-        mBinding.name.setText(VodConfig.get().getHome().getName());
+        com.fongmi.android.tv.bean.Site site = VodConfig.get().getSite(getKey());
+        String siteName = site != null && !TextUtils.isEmpty(site.getName()) ? site.getName() : VodConfig.get().getHome().getName();
+        mBinding.name.setText(siteName);
         com.fongmi.android.tv.utils.Clock.create(mBinding.clock).start();
         setNavScrim();
         if (com.fongmi.android.tv.BuildConfig.DEBUG) {
@@ -137,7 +146,7 @@ public class VodActivity extends BaseActivity implements TypeAdapter.OnClickList
 
     private void setNavScrim() {
         applyNavVariant();
-        getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((o, f) -> updateNavScrim(f));
+        getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener(mGlobalFocusListener);
     }
 
     /** 导航带变体：0=二次曲线渐变带（190dp），1=Apple TV+ 式「栏」。
@@ -252,7 +261,7 @@ public class VodActivity extends BaseActivity implements TypeAdapter.OnClickList
     @Override
     protected void onResume() {
         super.onResume();
-        App.post(mBackdropTask, 400);
+        App.post(mBackdropTask, 200);
     }
 
     @Override
@@ -263,6 +272,11 @@ public class VodActivity extends BaseActivity implements TypeAdapter.OnClickList
 
     @Override
     protected void onDestroy() {
+        if (getWindow() != null && getWindow().getDecorView().getViewTreeObserver().isAlive()) {
+            getWindow().getDecorView().getViewTreeObserver().removeOnGlobalFocusChangeListener(mGlobalFocusListener);
+        }
+        if (navBandAnim != null) navBandAnim.cancel();
+        App.removeCallbacks(mBackdropTask);
         if (com.fongmi.android.tv.BuildConfig.DEBUG) unregisterReceiver(mEdgeTierReceiver);
         super.onDestroy();
     }
@@ -401,6 +415,7 @@ public class VodActivity extends BaseActivity implements TypeAdapter.OnClickList
     }
 
     private void updateFilter(Class item) {
+        if (item == null || Cache.get(item).isEmpty()) return;
         boolean open = !item.getFilter();
         item.setFilter(open);
         getFragment().toggleFilter(open);
@@ -439,7 +454,7 @@ public class VodActivity extends BaseActivity implements TypeAdapter.OnClickList
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (KeyUtil.isMenuKey(event)) {
-            if (event.getAction() == KeyEvent.ACTION_DOWN) updateFilter();
+            updateFilter();
             return true;
         }
         if (event.getAction() == KeyEvent.ACTION_DOWN) {

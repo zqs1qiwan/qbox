@@ -37,6 +37,11 @@ public abstract class BaseBottomSheetDialog extends BottomSheetDialogFragment {
         }
     };
 
+    private FrameLayout trackedSheet;
+    private ViewTreeObserver.OnGlobalLayoutListener sheetLayoutListener;
+    private BottomSheetBehavior<FrameLayout> trackedBehavior;
+    private BottomSheetBehavior.BottomSheetCallback sheetBehaviorCallback;
+
     protected abstract ViewBinding getBinding(@NonNull LayoutInflater inflater, @Nullable ViewGroup container);
 
     @NonNull
@@ -114,16 +119,11 @@ public abstract class BaseBottomSheetDialog extends BottomSheetDialogFragment {
         sheet.setBackgroundResource(R.drawable.shape_sheet);
         BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(sheet);
         behavior.setMaxWidth(-1);
-        behavior.setMaxHeight((int) (ResUtil.getScreenHeight() * 0.85f));
+        behavior.setMaxHeight((int) (ResUtil.getScreenHeight(requireActivity()) * 0.85f));
         setBehavior(sheet);
         ViewCompat.setOnApplyWindowInsetsListener(sheet, (v, insets) -> WindowInsetsCompat.CONSUMED);
         fixSheetFrame(sheet);
-        sheet.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                fixSheetFrame(sheet);
-            }
-        });
+        attachSheetLayoutListener(sheet, () -> fixSheetFrame(sheet));
     }
 
     /**
@@ -136,22 +136,23 @@ public abstract class BaseBottomSheetDialog extends BottomSheetDialogFragment {
      */
     private void panelize(BottomSheetDialog dialog, FrameLayout sheet) {
         sheet.setBackgroundResource(R.drawable.shape_panel);
-        int width = ResUtil.dp2px(560);
+        int width = ResUtil.dp2px(requireActivity(), 560);
+        int maxHeight = (int) (ResUtil.getScreenHeight(requireActivity()) * 0.85f);
         BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(sheet);
         behavior.setMaxWidth(width);
-        behavior.setMaxHeight((int) (ResUtil.getScreenHeight() * 0.85f));
+        behavior.setMaxHeight(maxHeight);
         // 本机会上报假的左侧系统 inset（320px），Material 会把它转成 sheet 的 marginLeft，
         // 面板偏右且右缘被裁（实测 sheet=[720..1520]，窗口=[400..1520]）。
-        // 吃掉 sheet 的 inset 分发；布局监听器常驻、每次布局强制归零 margin（inset 何时下发不确定，一次性清不掉）。
+        // 吃掉 sheet 的 inset 分发；布局监听器按需归零 margin（仅在尺寸或 margin 实际偏移时写回，避免重排死循环）。
         ViewCompat.setOnApplyWindowInsetsListener(sheet, (v, insets) -> WindowInsetsCompat.CONSUMED);
         fixSheetFrame(sheet);
-        sheet.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                fixSheetFrame(sheet);
-                centerSheet(sheet);
-                if (sheet.getLeft() > 0) android.util.Log.e("QBoxSheet", "sheet pushed right: left=" + sheet.getLeft() + " marginLeft=" + ((ViewGroup.MarginLayoutParams) sheet.getLayoutParams()).leftMargin);
-            }
+        constrainScrollHeight(sheet, maxHeight);
+        centerSheet(sheet);
+        attachSheetBehaviorCallback(behavior, sheet);
+        attachSheetLayoutListener(sheet, () -> {
+            fixSheetFrame(sheet);
+            constrainScrollHeight(sheet, maxHeight);
+            centerSheet(sheet);
         });
         Window window = dialog.getWindow();
         if (window == null) return;
@@ -170,10 +171,82 @@ public abstract class BaseBottomSheetDialog extends BottomSheetDialogFragment {
         window.setWindowAnimations(android.R.style.Animation_Dialog);
     }
 
+    private void attachSheetLayoutListener(FrameLayout sheet, ViewTreeObserver.OnGlobalLayoutListener listener) {
+        detachSheetLayoutListener();
+        trackedSheet = sheet;
+        sheetLayoutListener = listener;
+        sheet.getViewTreeObserver().addOnGlobalLayoutListener(listener);
+    }
+
+    private void attachSheetBehaviorCallback(BottomSheetBehavior<FrameLayout> behavior, FrameLayout sheet) {
+        detachSheetBehaviorCallback();
+        trackedBehavior = behavior;
+        sheetBehaviorCallback = new BottomSheetBehavior.BottomSheetCallback() {
+            @Override
+            public void onStateChanged(@NonNull View bottomSheet, int newState) {
+                centerSheet(sheet);
+            }
+
+            @Override
+            public void onSlide(@NonNull View bottomSheet, float slideOffset) {
+                centerSheet(sheet);
+            }
+        };
+        behavior.addBottomSheetCallback(sheetBehaviorCallback);
+    }
+
+    private void detachSheetBehaviorCallback() {
+        if (trackedBehavior != null && sheetBehaviorCallback != null) {
+            trackedBehavior.removeBottomSheetCallback(sheetBehaviorCallback);
+        }
+        trackedBehavior = null;
+        sheetBehaviorCallback = null;
+    }
+
+    private void detachSheetLayoutListener() {
+        if (trackedSheet != null && sheetLayoutListener != null && trackedSheet.getViewTreeObserver().isAlive()) {
+            trackedSheet.getViewTreeObserver().removeOnGlobalLayoutListener(sheetLayoutListener);
+        }
+        trackedSheet = null;
+        sheetLayoutListener = null;
+    }
+
     /**
      * BottomSheetBehavior 永远把 sheet 贴在窗口底部；窗口保持全高，用 translationY 把 sheet
      * 平移到垂直居中（每次布局重算，behavior 重排后会被重置，所以常驻监听里反复应用）。
      */
+    private void constrainScrollHeight(FrameLayout sheet, int maxHeight) {
+        if (maxHeight <= 0 || sheet.getChildCount() == 0) return;
+        View root = sheet.getChildAt(0);
+        if (!(root instanceof ViewGroup group)) return;
+        int height = sheet.getHeight();
+        if (height <= 0 || height < maxHeight - 2) return;
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child instanceof androidx.core.widget.NestedScrollView) {
+                ViewGroup.LayoutParams rp = root.getLayoutParams();
+                if (rp != null && rp.height != maxHeight) {
+                    rp.height = maxHeight;
+                    root.setLayoutParams(rp);
+                }
+                if (child.getLayoutParams() instanceof android.widget.LinearLayout.LayoutParams lp) {
+                    if (lp.height != 0 || lp.weight != 1f) {
+                        lp.height = 0;
+                        lp.weight = 1f;
+                        child.setLayoutParams(lp);
+                    }
+                } else if (child.getLayoutParams() instanceof androidx.appcompat.widget.LinearLayoutCompat.LayoutParams lp) {
+                    if (lp.height != 0 || lp.weight != 1f) {
+                        lp.height = 0;
+                        lp.weight = 1f;
+                        child.setLayoutParams(lp);
+                    }
+                }
+                break;
+            }
+        }
+    }
+
     private void centerSheet(FrameLayout sheet) {
         View parent = (View) sheet.getParent();
         if (parent == null || parent.getHeight() == 0 || sheet.getHeight() == 0) return;
@@ -183,9 +256,16 @@ public abstract class BaseBottomSheetDialog extends BottomSheetDialogFragment {
 
     private void fixSheetFrame(FrameLayout sheet) {
         ViewGroup.LayoutParams sp = sheet.getLayoutParams();
+        if (sp == null) return;
+        boolean changed = sp.width != ViewGroup.LayoutParams.MATCH_PARENT;
         sp.width = ViewGroup.LayoutParams.MATCH_PARENT;
-        if (sp instanceof ViewGroup.MarginLayoutParams) ((ViewGroup.MarginLayoutParams) sp).setMargins(0, 0, 0, 0);
-        sheet.setLayoutParams(sp);
+        if (sp instanceof ViewGroup.MarginLayoutParams mp) {
+            if (mp.leftMargin != 0 || mp.topMargin != 0 || mp.rightMargin != 0 || mp.bottomMargin != 0) {
+                mp.setMargins(0, 0, 0, 0);
+                changed = true;
+            }
+        }
+        if (changed) sheet.setLayoutParams(sp);
     }
 
     private void setHeight(FrameLayout sheet, int maxHeight) {
@@ -207,6 +287,8 @@ public abstract class BaseBottomSheetDialog extends BottomSheetDialogFragment {
 
     @Override
     public void onDestroyView() {
+        detachSheetBehaviorCallback();
+        detachSheetLayoutListener();
         backCallback.setEnabled(false);
         super.onDestroyView();
     }

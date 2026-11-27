@@ -1,5 +1,6 @@
 package com.fongmi.android.tv.ui.adapter;
 
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -157,15 +158,19 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
         boolean bottomRow = position + columns >= getPageSize();
         View root = holder.binding.getRoot();
         // 格间距；外层只负责焦点命中，真正的选中样式在文字胶囊上。
+        int marginEnd = ResUtil.dp2px(10);
+        int marginBottom = ResUtil.dp2px(8);
         ViewGroup.LayoutParams params = root.getLayoutParams();
-        if (params instanceof ViewGroup.MarginLayoutParams) {
-            ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) params;
-            margins.setMarginEnd(ResUtil.dp2px(10));
-            margins.bottomMargin = ResUtil.dp2px(8);
+        if (params instanceof ViewGroup.MarginLayoutParams margins
+                && (margins.getMarginEnd() != marginEnd || margins.bottomMargin != marginBottom)) {
+            margins.setMarginEnd(marginEnd);
+            margins.bottomMargin = marginBottom;
             root.setLayoutParams(margins);
         }
         if (info == null) {
-            holder.binding.prefix.setText(item.getDesc());
+            String fixedPrefix = item.getDesc() == null ? "" : item.getDesc();
+            holder.binding.prefix.setText(fixedPrefix);
+            holder.binding.prefix.setVisibility(TextUtils.isEmpty(fixedPrefix) ? View.GONE : View.VISIBLE);
             holder.binding.text.setText(item.getName());
             holder.binding.badge.setVisibility(View.GONE);
             holder.binding.channel.setVisibility(View.GONE);
@@ -178,7 +183,9 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
             String tail = info.codecTail();
             String scrollName = item.getName() == null ? info.raw : item.getName();
             String fixedPrefix = info.rest.isEmpty() && tail.isEmpty() ? item.getDesc() : info.label;
+            if (fixedPrefix == null) fixedPrefix = "";
             holder.binding.prefix.setText(fixedPrefix);
+            holder.binding.prefix.setVisibility(fixedPrefix.isEmpty() ? View.GONE : View.VISIBLE);
             holder.binding.text.setText(scrollName);
             // 右上两排：分辨率 / 动态范围（DV·HDR）。
             String top = info.resolution() + (info.dynamicRange().isEmpty() ? "" : "\n" + info.dynamicRange());

@@ -102,7 +102,7 @@
         android:ellipsize="end"
         android:maxLines="1"
         android:textColor="@color/qbox_text"
-        android:textSize="32sp"
+        android:textSize="28sp"
         android:textStyle="bold"
         tools:text="庆余年 第二季" />
 
@@ -112,7 +112,7 @@
         android:layout_height="wrap_content"
         android:layout_below="@+id/name"
         android:layout_alignStart="@+id/name"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="4dp"
         android:layout_marginEnd="28dp"
         android:singleLine="true"
         android:textColor="@color/qbox_text_dim"
@@ -125,7 +125,7 @@
         android:layout_height="wrap_content"
         android:layout_below="@+id/remark"
         android:layout_alignStart="@+id/name"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="6dp"
         android:layout_marginEnd="28dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
@@ -177,7 +177,7 @@
         android:layout_height="wrap_content"
         android:layout_below="@+id/row1"
         android:layout_alignStart="@+id/name"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="6dp"
         android:layout_marginEnd="28dp"
         android:nextFocusDown="@id/actor"
         android:singleLine="true"
@@ -185,18 +185,16 @@
         android:textSize="14sp"
         tools:text="导演 · 孙皓" />
 
-    <!-- 主演单行 + 下缘钉在按钮行之上：fontScale 放大时各行变高，
-         上面文本栈向下长、按钮行（钉在 video 底）向上长，没有硬约束就会重叠（N-47）。 -->
+    <!-- 主演单行：不设 layout_above="@id/row2"，否则把下方的 intro 挤压成 0dp 高度 -->
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/actor"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@+id/director"
-        android:layout_above="@+id/row2"
         android:layout_alignStart="@+id/name"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="4dp"
         android:layout_marginEnd="28dp"
-        android:layout_marginBottom="8dp"
+        android:layout_marginBottom="0dp"
         android:ellipsize="end"
         android:maxLines="1"
         android:nextFocusDown="@id/content"
@@ -211,12 +209,12 @@
         android:layout_below="@+id/actor"
         android:layout_above="@+id/row2"
         android:layout_alignStart="@+id/name"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="6dp"
         android:layout_marginEnd="28dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="8dp"
         android:ellipsize="end"
-        android:lineSpacingExtra="5dp"
-        android:maxLines="5"
+        android:lineSpacingExtra="2dp"
+        android:maxLines="3"
         android:textColor="@color/qbox_text_dim"
         android:textSize="14sp"
         android:visibility="gone"

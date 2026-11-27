@@ -32,6 +32,11 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
     }
 
     @Override
+    protected boolean showBackdrop() {
+        return false;
+    }
+
+    @Override
     protected ViewBinding getBinding() {
         return mBinding = ActivitySettingPlayerBinding.inflate(getLayoutInflater());
     }
@@ -81,7 +86,6 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         int index = (PlayerSetting.getEngine() + 1) % engine.length;
         PlayerSetting.putEngine(index);
         setPlaybackModeText();
-        mBinding.back.setOnClickListener(v -> finish());
         setVisible();
     }
 

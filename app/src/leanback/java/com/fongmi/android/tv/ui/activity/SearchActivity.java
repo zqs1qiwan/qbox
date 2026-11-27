@@ -39,6 +39,7 @@ import java.util.Map;
 
 import okhttp3.Call;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 public class SearchActivity extends BaseActivity implements WordAdapter.OnClickListener, RecordAdapter.OnClickListener, CustomKeyboard.Callback {
 
@@ -47,6 +48,13 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
     private WordAdapter mWordAdapter;
     /** 建议词请求序号：只认最后一次请求的结果。 */
     private int mSuggestSeq;
+    private Call mSuggestCall;
+    private Runnable mSuggestTask;
+
+    @Override
+    protected boolean showBackdrop() {
+        return false;
+    }
 
     public static void start(Activity activity) {
         activity.startActivity(new Intent(activity, SearchActivity.class));
@@ -137,24 +145,37 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
     }
 
     private void getHot() {
+        App.removeCallbacks(mSuggestTask);
+        if (mSuggestCall != null) mSuggestCall.cancel();
         mBinding.word.setText(R.string.search_hot);
         mWordAdapter.setItems(Word.objectFrom(Setting.getHot()).getData());
-        OkHttp.newCall("https://api.web.360kan.com/v1/rank?cat=1", Map.of(HttpHeaders.REFERER, "https://www.360kan.com/rank/general")).enqueue(getCallback(true, ++mSuggestSeq));
+        mSuggestCall = OkHttp.newCall("https://api.web.360kan.com/v1/rank?cat=1", Map.of(HttpHeaders.REFERER, "https://www.360kan.com/rank/general"));
+        mSuggestCall.enqueue(getCallback(true, ++mSuggestSeq));
     }
 
     private void getSuggest(String text) {
         mBinding.word.setText(R.string.search_suggest);
+        App.removeCallbacks(mSuggestTask);
         int seq = ++mSuggestSeq;
-        OkHttp.newCall("https://suggest.video.iqiyi.com/?if=mobile&key=" + Uri.encode(ZhuToPin.get(text))).enqueue(getCallback(false, seq));
+        mSuggestTask = () -> {
+            if (isFinishing() || isDestroyed()) return;
+            if (mSuggestCall != null) mSuggestCall.cancel();
+            mSuggestCall = OkHttp.newCall("https://suggest.video.iqiyi.com/?if=mobile&key=" + Uri.encode(ZhuToPin.get(text)));
+            mSuggestCall.enqueue(getCallback(false, seq));
+        };
+        App.post(mSuggestTask, 200);
     }
 
     private Callback getCallback(boolean hot, int seq) {
         return new Callback() {
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-                String result = response.body().string();
-                if (TextUtils.isEmpty(result)) return;
-                App.post(() -> setAdapter(result, hot, seq));
+                try (response) {
+                    ResponseBody body = response.body();
+                    String result = body == null ? null : body.string();
+                    if (TextUtils.isEmpty(result)) return;
+                    App.post(() -> setAdapter(result, hot, seq));
+                }
             }
         };
     }
@@ -164,6 +185,7 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
      * 热词也一样：用户已经开始打字了，热词回来就丢掉。
      */
     private void setAdapter(String result, boolean save, int seq) {
+        if (mBinding == null || isFinishing() || isDestroyed()) return;
         if (save) {
             if (!empty()) return;
             Setting.putHot(result);
@@ -208,11 +230,14 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
     public boolean dispatchKeyEvent(KeyEvent event) {
         // 搜索页 BACK 直接退出：之前焦点在 EditText 上时 BACK 会被输入法/编辑框吃掉，
         // 表现为「按 BACK 不退出、偶尔删掉一个字」，用户以为遥控器坏了。
-        if (event.getAction() == KeyEvent.ACTION_UP && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+        if (event.getAction() == KeyEvent.ACTION_UP && event.getKeyCode() == KeyEvent.KEYCODE_BACK && !event.isCanceled()) {
             finish();
             return true;
         }
-        if (KeyUtil.isMenuKey(event)) showDialog();
+        if (KeyUtil.isMenuKey(event)) {
+            showDialog();
+            return true;
+        }
         if (KeyUtil.isActionDown(event) && findFocus(event)) return true;
         return super.dispatchKeyEvent(event);
     }
@@ -357,6 +382,8 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
 
     @Override
     protected void onDestroy() {
+        App.removeCallbacks(mSuggestTask);
+        if (mSuggestCall != null) mSuggestCall.cancel();
         super.onDestroy();
         mBinding.mic.destroy();
     }

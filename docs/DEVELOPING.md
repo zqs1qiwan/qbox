@@ -5,7 +5,7 @@
 ## 仓库与版本
 
 - 源码与发布：<https://github.com/zqs1qiwan/qbox>，长期分支 `main`。
-- 当前版本以 `app/build.gradle` 为准（2.0.4 / 104）。
+- 当前版本以 `app/build.gradle` 为准（2.0.6 / 106）。
 - TV 源码对齐 FongMi/TV 5.6.1（`125468f0`）；媒体层保持 FongMi/media `release-1.11.0-fongmi` 的 media3 1.11.0，不升级 media3。
 - 详细的上游同步记录见 [UPSTREAM.md](UPSTREAM.md)。
 
@@ -26,20 +26,25 @@ keyPassword=******
 4. 构建：
 
 ```bash
+# TV 端（主流盒子 armeabi-v7a，新型高配盒子 arm64-v8a）
 ./gradlew :app:assembleLeanbackArmeabi_v7aRelease
 ./gradlew :app:assembleLeanbackArm64_v8aRelease
+
+# 手机 / 平板 Pad 端（现代设备 arm64-v8a，老平板兼容 armeabi-v7a）
+./gradlew :app:assembleMobileArm64_v8aRelease
+./gradlew :app:assembleMobileArmeabi_v7aRelease
 ```
 
-Windows 下用 `gradlew.bat` 执行同样两个任务。
+Windows 下用 `gradlew.bat` 执行同样任务。
 
 ## 发布
 
 1. 修改 `app/build.gradle` 的 `versionCode` / `versionName`。
 2. 更新 `docs/RELEASE-NOTES-<版本>.md`。
-3. 构建两个 ABI 的 release APK，并验证包名、版本、签名和 ABI 载荷。
+3. 构建 TV 与手机/平板端四个 ABI 的 release APK，并验证包名、版本、签名和 ABI 载荷。
 4. `git archive` 导出源码包 `QBox-<版本>-source.zip`。
 5. 提交并打 `v<版本>` tag，CI 自动创建 GitHub Release。
-6. 资产命名：`QBox-<版本>-arm64-v8a.apk`、`QBox-<版本>-armeabi-v7a.apk`、`QBox-<版本>-source.zip`；`QBox-latest-*.apk` 是指向最新版的固定链接副本。
+6. 资产命名：`QBox-<版本>-tv-armeabi-v7a.apk`、`QBox-<版本>-tv-arm64-v8a.apk`、`QBox-<版本>-mobile-arm64-v8a.apk`、`QBox-<版本>-mobile-armeabi-v7a.apk`、`QBox-<版本>-source.zip`；`QBox-latest-<mode>-<abi>.apk` 是指向最新版的固定链接副本。
 
 ## 约束
 

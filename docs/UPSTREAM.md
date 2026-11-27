@@ -35,7 +35,8 @@ QBox 的定位是 **FongMi/TV 的 UI / 交互重构版 TVBox 客户端**，面�
 - 片尾跳集增加 `request == null`、`duration > 0` 守卫，避免首帧或切集时误跳下一集；
 - 保留 QBox 的遥控器优先交互：点集预览、全屏控制栏、上下集、换源、清晰度/音轨/字幕/视轨、片头片尾、后台播放等；
 - 选集网格保持 QBox 的两排布局、分组、焦点顺序与正序/倒序；
-- 站源切换、Toast 浮层、收藏/历史等 UI 层继续使用 QBox 自己的实现。
+- TV 源码对齐 FongMi/TV 5.6.1（`125468f0`），并选择性移植 `4cf3a25b`（Activity 重建保留 `PlaybackServiceConnection` 服务绑定）与 `d3a0b84b`（倍速合法性校验、提示动画防闪烁与倍速记忆）等不依赖新版 media3 AAR 的安全修复；
+- 在此基础上完成自研重构：默认简体中文 + TV/手机端设置页语言切换、BaseBottomSheetDialog/BaseAlertDialog 统一居中与防溢出滚动修复、触屏/平板布局与权限回调防护、双端（`tv`/`mobile` × `armeabi-v7a`/`arm64-v8a`）打包与更新包匹配。
 
 ### 壳子与工程
 

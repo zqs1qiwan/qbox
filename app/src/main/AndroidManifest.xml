@@ -71,7 +71,7 @@
             android:name=".receiver.UpdateReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.qbox.app.UPDATE_STATUS" />
+                <action android:name="${applicationId}.UPDATE_STATUS" />
             </intent-filter>
         </receiver>
 

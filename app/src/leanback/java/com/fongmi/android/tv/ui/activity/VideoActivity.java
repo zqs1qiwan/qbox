@@ -131,7 +131,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     private View mFocus1;
     private View mFocus2;
     private Runnable mR1;
-    private Runnable mR2;
     private Runnable mR3;
     private Runnable mR4;
     private Runnable mR5;
@@ -262,6 +261,11 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     @Override
+    protected boolean showBackdrop() {
+        return false;
+    }
+
+    @Override
     protected ViewBinding getBinding() {
         return mBinding = ActivityVideoBinding.inflate(getLayoutInflater());
     }
@@ -292,6 +296,10 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         if (TextUtils.isEmpty(intent.getStringExtra("id")) || isSameVideo(intent)) return;
         saveHistory(true);
         mVod.reset();
+        mDetailFocusSet = false;
+        mKeepGroup = -1;
+        mFocus1 = null;
+        mFocus2 = null;
         setIntent(intent);
         updateNavigationKey();
         checkId();
@@ -311,7 +319,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         }
         styleSeekBar();
         mR1 = this::hideControl;
-        mR2 = this::updateFocus;
         mR3 = this::setTraffic;
         mR4 = this::showEmpty;
         mR5 = this::updateStats;
@@ -371,13 +378,15 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     /** 焦点在源的胶囊上停 600ms 才真正换源；期间再移动就取消，人的控制权优先。 */
     private void scheduleFlagSwitch(int position) {
         App.removeCallbacks(mFlagSwitch);
+        if (mBinding == null || !mBinding.flag.hasFocus()) return;
         mFlagSwitchPosition = position;
         App.post(mFlagSwitch, 600);
     }
 
     private final Runnable mFlagSwitch = () -> {
+        if (mBinding == null || isFinishing() || isDestroyed()) return;
         if (mFlagAdapter == null || mFlagSwitchPosition < 0 || mFlagSwitchPosition >= mFlagAdapter.getItemCount()) return;
-        if (mBinding.flag.hasFocus() || mBinding.flag.getSelectedPosition() == mFlagSwitchPosition) {
+        if (mBinding.flag.hasFocus()) {
             onItemClick(mFlagAdapter.get(mFlagSwitchPosition));
         }
     };
@@ -916,7 +925,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         } else {
             showEpisodePage(mEpisodeAdapter.getPosition());
         }
-        setR2Callback();
     }
 
     /** 选集网格用纵向 GridLayoutManager：第一排从左往右填满，再换第二排（不是 Leanback 的按列填）。
@@ -997,14 +1005,24 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         onRevSort();
     }
 
-    /** 主按钮「播放」：直接播第一个可播剧集；没有剧集时先选中第一条线路。 */
+    /** 主按钮「播放」：当前有选中集时直接进全屏；否则播第一集，没有剧集时先选中第一条线路。 */
     private void onPrimaryPlay() {
         if (mEpisodeItems != null && !mEpisodeItems.isEmpty()) {
-            // 播放按钮：当前集已在播，直接进全屏；否则播第一集（原语义保留）。
-            Episode first = mEpisodeItems.get(0);
-            if (!isFullscreen() && first.isSelected()) enterFullscreen();
-            else onItemClick(first);
-        } else if (mFlagAdapter != null && mFlagAdapter.getItemCount() > 0) onItemClick(mFlagAdapter.get(0));
+            Episode current = null;
+            for (Episode item : mEpisodeItems) {
+                if (item.isSelected()) {
+                    current = item;
+                    break;
+                }
+            }
+            if (current != null) {
+                if (!isFullscreen()) enterFullscreen();
+            } else {
+                onItemClick(mEpisodeItems.get(0));
+            }
+        } else if (mFlagAdapter != null && mFlagAdapter.getItemCount() > 0) {
+            onItemClick(mFlagAdapter.get(0));
+        }
     }
 
     @Override
@@ -1021,39 +1039,11 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     private void setQualityVisible(boolean visible) {
         mBinding.quality.setVisibility(visible ? View.VISIBLE : View.GONE);
-        setR2Callback();
     }
 
     @Override
     public void onItemClick(Result result) {
         mVod.selectQuality(result);
-    }
-
-    private int findFocusDown(int index) {
-        List<Integer> orders = Arrays.asList(R.id.flag, R.id.quality, R.id.episode_group, R.id.episode, R.id.part, R.id.quick);
-        for (int i = 0; i < orders.size(); i++) if (i > index) if (isVisible(findViewById(orders.get(i)))) return orders.get(i);
-        return 0;
-    }
-
-    private int findFocusUp(int index) {
-        List<Integer> orders = Arrays.asList(R.id.flag, R.id.quality, R.id.episode_group, R.id.episode, R.id.part, R.id.quick);
-        for (int i = orders.size() - 1; i >= 0; i--) if (i < index) if (isVisible(findViewById(orders.get(i)))) return orders.get(i);
-        return 0;
-    }
-
-    private void updateFocus() {
-        mPartAdapter.setNextFocusUp(findFocusUp(4));
-        mEpisodeAdapter.setNextFocusUp(findFocusUp(3));
-        mEpisodeAdapter.setNextFocusDown(findFocusDown(3));
-        mEpisodeGroupAdapter.setNextFocusUp(findFocusUp(2));
-        mEpisodeGroupAdapter.setNextFocusDown(findFocusDown(2));
-        mQualityAdapter.setNextFocusDown(findFocusDown(1));
-        mFlagAdapter.setNextFocusDown(findFocusDown(0));
-        notifyItemChanged(mBinding.episodeGroup, mEpisodeGroupAdapter);
-        notifyItemChanged(mBinding.quality, mQualityAdapter);
-        notifyItemChanged(mBinding.episode, mEpisodeAdapter);
-        notifyItemChanged(mBinding.part, mPartAdapter);
-        notifyItemChanged(mBinding.flag, mFlagAdapter);
     }
 
     /** 排序标志（分组条最前面的小按钮）：切换正序 / 倒序排列，播放顺序始终跟随显示顺序。 */
@@ -1072,8 +1062,10 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mFocus1 = getCurrentFocus();
         mBinding.video.requestFocus();
         mBinding.video.setForeground(null);
-        // 真全屏：黑底 + 去掉详情态的 12dp 圆角与裁剪。
-        // 黑底很关键：非 16:9 片源的上下/左右黑边必须是纯黑，不能透出氛围底图。
+        // 真全屏：黑底 + 去掉详情态的 12dp 圆角与裁剪，并隐藏底层详情氛围背景避免 60fps 过度绘制。
+        mBinding.backdrop.setVisibility(View.GONE);
+        mBinding.backdropScrim.setVisibility(View.GONE);
+        mBinding.detailScrim.setVisibility(View.GONE);
         mBinding.video.setBackgroundColor(Color.BLACK);
         mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
         mBinding.flag.setSelectedPosition(mFlagAdapter.getPosition());
@@ -1083,14 +1075,23 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void exitFullscreen() {
+        mBinding.backdrop.setVisibility(View.VISIBLE);
+        mBinding.backdropScrim.setVisibility(View.VISIBLE);
+        mBinding.detailScrim.setVisibility(View.VISIBLE);
         mBinding.video.setForeground(ResUtil.getDrawable(R.drawable.selector_video));
         mBinding.video.setLayoutParams(mFrameParams);
         mBinding.video.setBackground(mVideoBg);
-        getFocus1().requestFocus();
+        restoreFocus1();
         mKeyDown.setFull(false);
         setFullscreen(false);
         mFocus2 = null;
         hideInfo();
+    }
+
+    private void restoreFocus1() {
+        if (mFocus1 != null && mFocus1.isAttachedToWindow() && mFocus1.isShown() && mFocus1.requestFocus()) return;
+        if (mFocus1 != null && isInside(mBinding.episode, mFocus1) && focusEpisodeGrid()) return;
+        mBinding.video.requestFocus();
     }
 
     private void onContent() {
@@ -1197,11 +1198,13 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void onOpeningAdd() {
-        setOpening(Math.max(0, Math.max(0, mHistory.getOpening()) + 1000));
+        long base = mHistory == null ? 0 : Math.max(0, mHistory.getOpening());
+        setOpening(base + 1000);
     }
 
     private void onOpeningSub() {
-        setOpening(Math.max(0, Math.max(0, mHistory.getOpening()) - 1000));
+        long base = mHistory == null ? 0 : Math.max(0, mHistory.getOpening());
+        setOpening(Math.max(0, base - 1000));
     }
 
     private boolean onOpeningReset() {
@@ -1211,21 +1214,25 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     private void setOpening(long opening) {
         mVod.setOpening(opening);
-        mBinding.control.action.opening.setText(opening <= 0 ? getString(R.string.play_op) : Util.timeMs(mHistory.getOpening()));
+        long shown = mHistory != null ? mHistory.getOpening() : opening;
+        mBinding.control.action.opening.setText(opening <= 0 ? getString(R.string.play_op) : Util.timeMs(shown));
     }
 
     private void onEnding() {
+        if (service() == null) return;
         long position = player().getPosition();
         long duration = player().getDuration();
         if (player().canSetEnding(position, duration)) setEnding(duration - position);
     }
 
     private void onEndingAdd() {
-        setEnding(Math.max(0, Math.max(0, mHistory.getEnding()) + 1000));
+        long base = mHistory == null ? 0 : Math.max(0, mHistory.getEnding());
+        setEnding(base + 1000);
     }
 
     private void onEndingSub() {
-        setEnding(Math.max(0, Math.max(0, mHistory.getEnding()) - 1000));
+        long base = mHistory == null ? 0 : Math.max(0, mHistory.getEnding());
+        setEnding(Math.max(0, base - 1000));
     }
 
     private boolean onEndingReset() {
@@ -1235,7 +1242,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     private void setEnding(long ending) {
         mVod.setEnding(ending);
-        mBinding.control.action.ending.setText(ending <= 0 ? getString(R.string.play_ed) : Util.timeMs(mHistory.getEnding()));
+        long shown = mHistory != null ? mHistory.getEnding() : ending;
+        mBinding.control.action.ending.setText(ending <= 0 ? getString(R.string.play_ed) : Util.timeMs(shown));
     }
 
     private void onPlayer() {
@@ -1262,12 +1270,15 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         // 用户拍板（2026-11-14）：播放中的「章节」入口必须是选集——媒体章节（player chapters）基本为空，
         // 点了什么都不出现，这就是「全屏里无法选集」的死路。有多集时退回详情页并聚焦当前集所在格。
         if (mEpisodeAdapter != null && mEpisodeAdapter.getTotalCount() > 1) {
+            hideControlImmediate();
             if (isFullscreen()) exitFullscreen();
-            App.post(() -> focusEpisodeGrid(), 250);
+            App.post(() -> {
+                if (mBinding != null && !isFinishing() && !isDestroyed()) focusEpisodeGrid();
+            }, 250);
         } else {
             ChapterDialog.create().player(player()).show(this);
+            hideControl();
         }
-        hideControl();
     }
 
     private void onDanmaku() {
@@ -1356,6 +1367,24 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         });
     }
 
+    private void hideControlImmediate() {
+        seeking = false;
+        seekFocus = false;
+        App.removeCallbacks(mHideControl);
+        App.removeCallbacks(mR1);
+        if (mBinding == null) return;
+        View root = mBinding.control.getRoot();
+        View action = mBinding.control.action.getRoot();
+        ++mControlAnimSeq;
+        root.animate().cancel();
+        action.animate().cancel();
+        root.setVisibility(View.GONE);
+        root.setAlpha(1f);
+        action.setAlpha(1f);
+        action.setVisibility(View.VISIBLE);
+        setSubtitleLift(false);
+    }
+
     private void hideControl() {
         seeking = false;
         seekFocus = false;
@@ -1430,18 +1459,20 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void updateStats() {
-        if (mBinding.stats.getRoot().getVisibility() != View.VISIBLE) return;
+        if (mBinding == null || mBinding.stats.getRoot().getVisibility() != View.VISIBLE) return;
         mBinding.stats.text.setText(buildStats());
         App.post(mR5, 1000);
     }
 
     /** Stats for nerds：引擎/解码/分辨率/码率/音轨/输出/网速/缓冲，1s 刷新。 */
     private String buildStats() {
-        Player p = player().getPlayer();
         StringBuilder sb = new StringBuilder();
         sb.append("QBox stats\n");
+        if (service() == null) return sb.append("player idle").toString();
+        Player p = player().getPlayer();
         if (p == null) return sb.append("player idle").toString();
-        sb.append("Engine   ").append(PlayerSetting.isMpv() ? "MPV" : "EXO").append(" · ").append(player().getDecodeText()).append(" · ").append(PlayerSetting.getRender() == 0 ? "Surface" : "Texture").append('\n');
+        String engine = PlaybackAction.getEngine(player()) == 1 ? "MPV" : "EXO";
+        sb.append("Engine   ").append(engine).append(" · ").append(player().getDecodeText()).append(" · ").append(PlayerSetting.getRender() == 0 ? "Surface" : "Texture").append('\n');
         sb.append("State    ").append(stateText()).append(" · ").append(String.format(Locale.US, "%.1fx", player().getSpeed())).append('\n');
         Format video = findSelectedFormat(C.TRACK_TYPE_VIDEO);
         VideoSize size = p.getVideoSize();
@@ -1547,19 +1578,16 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         else if (isVisible(mBinding.control.getRoot())) setR1Callback();
     }
 
-    private void setR2Callback() {
-        App.post(mR2, 500);
-    }
-
     private void setArtwork(String url) {
-        mHistory.setVodPic(url);
+        if (mHistory != null) mHistory.setVodPic(url);
         setArtwork();
-        ImgUtil.load(mHistory.getVodName(), url, mBinding.poster);
+        ImgUtil.load(mHistory != null ? mHistory.getVodName() : getName(), url, mBinding.poster);
         mBinding.poster.setVisibility(View.VISIBLE);
     }
 
     private void setArtwork() {
-        ImgUtil.load(this, mHistory.getVodPic(), new CustomTarget<>() {
+        String pic = mHistory != null ? mHistory.getVodPic() : getPic();
+        ImgUtil.load(this, pic, new CustomTarget<>() {
             @Override
             public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
                 mBinding.player.setDefaultArtwork(resource);
@@ -1570,7 +1598,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                 mBinding.player.setDefaultArtwork(errorDrawable);
             }
         });
-        setBackdrop(mHistory.getVodPic());
+        setBackdrop(pic);
     }
 
     /** 详情页氛围底图：源海报中心 16:9 横带，保持 480×270 小尺寸解码（方向：不提清晰度，
@@ -1588,9 +1616,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void setPartAdapter() {
-        mPartAdapter.addAll(PartUtil.split(mHistory.getVodName()));
+        String name = mHistory != null ? mHistory.getVodName() : getName();
+        mPartAdapter.addAll(PartUtil.split(name));
         mBinding.part.setVisibility(View.VISIBLE);
-        setR2Callback();
     }
 
     private void saveHistory(boolean exit) {
@@ -1609,14 +1637,15 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         Keep keep = new Keep();
         keep.setKey(getHistoryKey());
         keep.setCid(VodConfig.getCid());
-        keep.setVodPic(mHistory.getVodPic());
-        keep.setVodName(mHistory.getVodName());
+        keep.setVodPic(mHistory != null ? mHistory.getVodPic() : getPic());
+        keep.setVodName(mHistory != null ? mHistory.getVodName() : getVodName());
         keep.setSiteName(getSite().getName());
         keep.setCreateTime(System.currentTimeMillis());
         keep.save();
     }
 
     private void updateKeep() {
+        if (mHistory == null) return;
         Keep keep = Keep.find(getHistoryKey());
         if (keep != null) {
             keep.setVodName(mHistory.getVodName());
@@ -1708,10 +1737,11 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                 break;
             case Player.STATE_ENDED:
                 hideProgress();
+                boolean hasMoreEpisodes = mEpisodeAdapter != null && mEpisodeAdapter.getPosition() < mEpisodeAdapter.getTotalCount() - 1;
                 mVod.playbackEnded();
                 mClock.setCallback(null);
                 hideInfo();
-                showControl(mBinding.control.action.replay);
+                if (isFullscreen() && !hasMoreEpisodes && !player().isRepeatOne()) showControl(mBinding.control.action.replay);
                 break;
         }
     }
@@ -1767,7 +1797,10 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void setMediaOptionVisible() {
-        PlaybackAction.setMediaOptions(player(), mBinding.control.action.edition, mBinding.control.action.chapter);
+        PlaybackAction.setMediaOptions(player(), mBinding.control.action.edition, null);
+        boolean hasEpisodes = mEpisodeAdapter != null && mEpisodeAdapter.getTotalCount() > 1;
+        boolean hasChapters = service() != null && player().haveChapter();
+        mBinding.control.action.chapter.setVisibility(hasEpisodes || hasChapters ? View.VISIBLE : View.GONE);
     }
 
     @Override
@@ -1781,12 +1814,13 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void onPaused() {
-        controller().pause();
+        if (controller() != null) controller().pause();
     }
 
     private void onPlay() {
+        if (controller() == null) return;
         if (mHistory != null && isEnded()) controller().seekTo(mHistory.getOpening());
-        if (!player().isEmpty() && isIdle()) controller().prepare();
+        if (service() != null && !player().isEmpty() && isIdle()) controller().prepare();
         controller().play();
     }
 
@@ -1818,10 +1852,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     public void setUseParse(boolean useParse) {
         this.useParse = useParse;
-    }
-
-    private View getFocus1() {
-        return mFocus1 == null || mFocus1.getVisibility() != View.VISIBLE ? mBinding.video : mFocus1;
     }
 
     private View getFocus2() {
@@ -2107,7 +2137,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void seekBy(long delta) {
-        if (service() == null) return;
+        if (service() == null || controller() == null) return;
         long duration = Math.max(0, player().getDuration());
         long target = Math.max(0, player().getPosition() + delta);
         if (duration > 0) target = Math.min(duration, target);
@@ -2152,6 +2182,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     @Override
     public void onSeeking(long time) {
+        if (service() == null || controller() == null) return;
         // QBox 1.9.8: 快进直接复用底部控制条（进度条 + 时间），不再另做浮层。
         if (!seeking) {
             seeking = true;
@@ -2171,8 +2202,12 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     /** 左右快进时把控制条「借」出来显示进度，但不抢焦点，方向键继续走快进。
      *  seek 触发的是精简态——只留「名称/信息行 + 进度条」，整排按钮 GONE，不占屏幕。 */
     private void enterSeekMode() {
+        enterSeekMode(true);
+    }
+
+    private void enterSeekMode(boolean forSeek) {
         if (isVisible(mBinding.control.getRoot())) return;
-        seeking = true;
+        seeking = forSeek;
         seekBase = player().getPosition();
         App.removeCallbacks(mHideControl);
         App.removeCallbacks(mR1);
@@ -2306,7 +2341,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         if (service() == null) return;
         boolean wasPlaying = !isEnded() && player().isPlayWhenReady();
         onPlayPause();
-        if (wasPlaying) enterSeekMode();
+        if (wasPlaying) enterSeekMode(false);
         else hideControl();
     }
 
@@ -2323,13 +2358,16 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode == RESULT_OK && requestCode == 1001) PlaybackIntent.onExternalResult(data, service()::dispatchNext, controller()::seekTo);
+        if (resultCode == RESULT_OK && requestCode == 1001 && service() != null && controller() != null) {
+            PlaybackIntent.onExternalResult(data, service()::dispatchNext, controller()::seekTo);
+        }
     }
 
     @Override
     protected void onStart() {
         super.onStart();
         mClock.stop().start();
+        if (mBinding != null && mBinding.stats.getRoot().getVisibility() == View.VISIBLE) App.post(mR5, 0);
     }
 
     @Override
@@ -2337,6 +2375,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         super.onStop();
         seeking = false;
         App.removeCallbacks(mHideControl);
+        App.removeCallbacks(mR5);
         saveHistory(false);
         if (PlayerSetting.isBackgroundOff()) mClock.stop();
     }
@@ -2388,8 +2427,10 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         saveHistory(true);
         DanmakuApi.cancel();
         RefreshEvent.keep();
-        App.removeCallbacks(mR1, mR2, mR3, mR4, mR5);
-        App.removeCallbacks(mHideControl);
+        App.removeCallbacks(mR1, mR3, mR4, mR5);
+        App.removeCallbacks(mHideControl, mFlagSwitch, mRestoreSeekFocus);
+        mBinding.control.getRoot().animate().cancel();
+        mBinding.control.action.getRoot().animate().cancel();
         super.onDestroy();
     }
 }

@@ -32,12 +32,14 @@ public class CustomLiveListView extends VerticalGridView {
     }
 
     private boolean onKeyDown() {
+        if (getAdapter() == null || getAdapter().getItemCount() == 0) return false;
         if (getSelectedPosition() != getAdapter().getItemCount() - 1) return false;
         setSelectedPosition(0);
         return true;
     }
 
     private boolean onKeyUp() {
+        if (getAdapter() == null || getAdapter().getItemCount() == 0) return false;
         if (getSelectedPosition() != 0) return false;
         setSelectedPosition(getAdapter().getItemCount() - 1);
         return true;

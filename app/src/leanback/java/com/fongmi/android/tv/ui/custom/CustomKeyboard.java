@@ -32,10 +32,11 @@ public class CustomKeyboard implements KeyboardAdapter.OnClickListener {
         if ("空格".equals(text)) text = " ";
         StringBuilder sb = new StringBuilder(binding.keyword.getText().toString());
         int cursor = binding.keyword.getSelectionStart();
+        if (cursor < 0 || cursor > sb.length()) cursor = sb.length();
         if (binding.keyword.length() > 19) return;
         sb.insert(cursor, text);
         binding.keyword.setText(sb.toString());
-        binding.keyword.setSelection(cursor + 1);
+        binding.keyword.setSelection(cursor + text.length());
     }
 
     @Override

@@ -64,7 +64,7 @@ public abstract class BaseAlertDialog extends DialogFragment {
     protected void setWidth(float factor) {
         if (getDialog() == null || getDialog().getWindow() == null) return;
         WindowManager.LayoutParams params = getDialog().getWindow().getAttributes();
-        params.width = Util.isLeanback() && !isCompact() ? ResUtil.dp2px(560) : (int) (ResUtil.getScreenWidth() * factor);
+        params.width = Util.isLeanback() && !isCompact() ? ResUtil.dp2px(requireActivity(), 560) : (int) (ResUtil.getScreenWidth(requireActivity()) * factor);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             params.layoutInDisplayCutoutMode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
                     ? WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS

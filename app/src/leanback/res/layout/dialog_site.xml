@@ -39,7 +39,7 @@
             android:nextFocusDown="@id/change"
             android:padding="8dp"
             android:src="@drawable/ic_site_search"
-            app:tint="@color/white" />
+            app:tint="@color/icon_tint" />
 
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/change"
@@ -53,7 +53,7 @@
             android:nextFocusDown="@id/select"
             android:padding="8dp"
             android:src="@drawable/ic_site_change"
-            app:tint="@color/white" />
+            app:tint="@color/icon_tint" />
 
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/select"
@@ -66,7 +66,8 @@
             android:nextFocusUp="@id/change"
             android:nextFocusDown="@id/cancel"
             android:padding="8dp"
-            android:src="@drawable/ic_site_select" />
+            android:src="@drawable/ic_site_select"
+            app:tint="@color/icon_tint" />
 
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/cancel"
@@ -79,7 +80,8 @@
             android:nextFocusUp="@id/select"
             android:nextFocusDown="@id/mode"
             android:padding="8dp"
-            android:src="@drawable/ic_site_cancel" />
+            android:src="@drawable/ic_site_cancel"
+            app:tint="@color/icon_tint" />
 
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/mode"
@@ -92,6 +94,7 @@
             android:nextFocusUp="@id/cancel"
             android:nextFocusDown="@id/mode"
             android:padding="8dp"
+            app:tint="@color/icon_tint"
             tools:src="@drawable/ic_site_list" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>

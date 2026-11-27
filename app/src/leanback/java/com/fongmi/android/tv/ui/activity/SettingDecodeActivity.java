@@ -25,6 +25,11 @@ public class SettingDecodeActivity extends BaseActivity {
     }
 
     @Override
+    protected boolean showBackdrop() {
+        return false;
+    }
+
+    @Override
     protected ViewBinding getBinding() {
         return mBinding = ActivitySettingDecodeBinding.inflate(getLayoutInflater());
     }

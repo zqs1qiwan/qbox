@@ -31,26 +31,40 @@ public class BackdropBlur extends BitmapTransformation {
     protected Bitmap transform(@NonNull BitmapPool pool, @NonNull Bitmap toTransform, int outWidth, int outHeight) {
         // 实测（.214，A53）：480×270 全程约 110-150ms，Glide 后台线程一次性执行 + 磁盘缓存，渲染线程/播放零开销。
         Bitmap small = Bitmap.createScaledBitmap(toTransform, SMALL_W, SMALL_H, true);
+        if (!small.isMutable()) {
+            Bitmap mutableSmall = small.copy(Bitmap.Config.ARGB_8888, true);
+            if (small != toTransform) small.recycle();
+            small = mutableSmall;
+        }
         boxBlur3(small, 2);
         Bitmap up = Bitmap.createScaledBitmap(small, toTransform.getWidth(), toTransform.getHeight(), true);
+        if (small != toTransform && small != up) small.recycle();
+        if (!up.isMutable()) {
+            Bitmap mutableUp = pool.get(toTransform.getWidth(), toTransform.getHeight(), Bitmap.Config.ARGB_8888);
+            android.graphics.Canvas canvas = new android.graphics.Canvas(mutableUp);
+            canvas.drawBitmap(up, 0f, 0f, null);
+            if (up != toTransform) up.recycle();
+            up = mutableUp;
+        }
         dither(up);
         return up;
     }
 
-    /** 三趟盒式模糊（水平+垂直滑动窗口），近似高斯；r 为小尺寸图上的半径。 */
+    /** 三趟盒式模糊（水平+垂直滑动窗口），近似高斯；复用同一对像素缓冲区避免 12 次数组分配。 */
     private static void boxBlur3(Bitmap bmp, int r) {
-        for (int i = 0; i < 3; i++) {
-            boxBlurPass(bmp, r, true);
-            boxBlurPass(bmp, r, false);
-        }
-    }
-
-    private static void boxBlurPass(Bitmap bmp, int r, boolean horizontal) {
         int w = bmp.getWidth();
         int h = bmp.getHeight();
-        int[] px = new int[w * h];
-        bmp.getPixels(px, 0, w, 0, 0, w, h);
-        int[] out = new int[w * h];
+        int[] bufA = new int[w * h];
+        int[] bufB = new int[w * h];
+        bmp.getPixels(bufA, 0, w, 0, 0, w, h);
+        for (int i = 0; i < 3; i++) {
+            boxBlurPass(bufA, bufB, w, h, r, true);
+            boxBlurPass(bufB, bufA, w, h, r, false);
+        }
+        bmp.setPixels(bufA, 0, w, 0, 0, w, h);
+    }
+
+    private static void boxBlurPass(int[] px, int[] out, int w, int h, int r, boolean horizontal) {
         int div = 2 * r + 1;
         if (horizontal) {
             for (int y = 0; y < h; y++) {
@@ -86,10 +100,9 @@ public class BackdropBlur extends BitmapTransformation {
                 }
             }
         }
-        bmp.setPixels(out, 0, w, 0, 0, w, h);
     }
 
-    /** 确定性 ±1 抖动：坐标 hash 出伪随机 ±1，打散平滑渐变的色带；不引入可见噪声。 */
+    /** 确定性 ±1 抖动：32 位 Knuth 乘法哈希最高符号位出伪随机 ±1，打散平滑渐变的色带；不引入可见噪声。 */
     private static void dither(Bitmap bmp) {
         int w = bmp.getWidth();
         int h = bmp.getHeight();
@@ -97,7 +110,8 @@ public class BackdropBlur extends BitmapTransformation {
         bmp.getPixels(px, 0, w, 0, 0, w, h);
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
-                int n = ((x * 73 + y * 149) * 2654435761L >>> 31) == 0 ? 1 : -1;
+                int hash = (int) ((x * 73 + y * 149) * 2654435761L);
+                int n = (hash >>> 31) == 0 ? 1 : -1;
                 int i = y * w + x;
                 int c = px[i];
                 int rr = clamp(((c >> 16) & 0xFF) + n, 0, 255);

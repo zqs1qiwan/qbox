@@ -377,9 +377,8 @@ public class CustomVerticalGridView extends VerticalGridView {
     /** 目标行未布局时记下当前列 x，等 Leanback 滚动落焦后由 onFocus 修正。 */
     private void markPendingColumn(View focused, int rowDelta) {
         mPendingColX = -1;
-        if (focused == null || !(focused.getParent() instanceof HorizontalGridView)) return;
-        View rowView = (View) focused.getParent().getParent();
-        if (rowView == null) return;
+        if (focused == null || !(focused.getParent() instanceof HorizontalGridView parentGrid)) return;
+        if (!(parentGrid.getParent() instanceof View rowView)) return;
         int rowPos = getChildAdapterPosition(rowView);
         if (rowPos < 0 || getAdapter() == null) return;
         int target = rowPos + rowDelta;
@@ -402,9 +401,9 @@ public class CustomVerticalGridView extends VerticalGridView {
 
     private final android.view.ViewTreeObserver.OnGlobalFocusChangeListener mFocusListener = (o, f) -> {
         if (mPendingColX < 0 || mCorrectingFocus || f == null) return;
-        if (!(f.getParent() instanceof HorizontalGridView)) return;
+        if (!com.fongmi.android.tv.utils.ViewUtil.isInside(this, f)) return;
+        if (!(f.getParent() instanceof HorizontalGridView row)) return;
         // 焦点刚落到目标行（Leanback 滚完后通常落在行首）：立刻修正到 pending 列 x 的最近项。
-        HorizontalGridView row = (HorizontalGridView) f.getParent();
         View best = nearestChildByX(row, mPendingColX);
         if (best == null || best == f) {
             mPendingColX = -1;
@@ -419,11 +418,8 @@ public class CustomVerticalGridView extends VerticalGridView {
     };
 
     private View findNearestColumn(View focused, int rowDelta) {
-        if (focused == null) return null;
-        View parent = (View) focused.getParent();
-        if (!(parent instanceof HorizontalGridView)) return null;
-        View rowView = (View) parent.getParent();
-        if (rowView == null) return null;
+        if (focused == null || !(focused.getParent() instanceof HorizontalGridView parent)) return null;
+        if (!(parent.getParent() instanceof View rowView)) return null;
         int rowPos = getChildAdapterPosition(rowView);
         if (rowPos < 0) return null;
         View targetRow = findChildByPosition(rowPos + rowDelta);

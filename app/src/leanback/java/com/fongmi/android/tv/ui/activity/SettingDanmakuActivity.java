@@ -29,6 +29,11 @@ public class SettingDanmakuActivity extends BaseActivity implements DanmakuListe
     }
 
     @Override
+    protected boolean showBackdrop() {
+        return false;
+    }
+
+    @Override
     protected ViewBinding getBinding() {
         return mBinding = ActivitySettingDanmakuBinding.inflate(getLayoutInflater());
     }

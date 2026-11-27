@@ -34,6 +34,11 @@ public class KeepActivity extends BaseActivity implements KeepAdapter.OnClickLis
     }
 
     @Override
+    protected boolean showBackdrop() {
+        return false;
+    }
+
+    @Override
     protected ViewBinding getBinding() {
         return mBinding = ActivityKeepBinding.inflate(getLayoutInflater());
     }

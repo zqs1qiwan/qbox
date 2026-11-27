@@ -69,8 +69,11 @@ public class PushActivity extends BaseActivity {
 
     private void onCode(View view) {
         if (Proxy.getPort() == -1) return;
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setData(Uri.parse(Server.get().getAddress(getTab())));
-        startActivity(intent);
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse(Server.get().getAddress(getTab())));
+            startActivity(intent);
+        } catch (Exception ignored) {
+        }
     }
 }

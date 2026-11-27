@@ -35,8 +35,13 @@
 
 前往 **[GitHub Releases](https://github.com/zqs1qiwan/qbox/releases/latest)** 下载最新版本：
 
-- [arm64-v8a](https://github.com/zqs1qiwan/qbox/releases/latest/download/QBox-latest-arm64-v8a.apk)：大多数 2019 年后的电视 / 盒子
-- [armeabi-v7a](https://github.com/zqs1qiwan/qbox/releases/latest/download/QBox-latest-armeabi-v7a.apk)：较老的 32 位设备
+**TV 端（Android TV / 电视盒子）**
+- [tv-armeabi-v7a](https://github.com/zqs1qiwan/qbox/releases/latest/download/QBox-latest-tv-armeabi-v7a.apk)：大多数 32 位电视与机顶盒
+- [tv-arm64-v8a](https://github.com/zqs1qiwan/qbox/releases/latest/download/QBox-latest-tv-arm64-v8a.apk)：64 位高性能电视 / 盒子
+
+**手机 / 平板 Pad 端（触屏适配）**
+- [mobile-arm64-v8a](https://github.com/zqs1q/qbox/releases/latest/download/QBox-latest-mobile-arm64-v8a.apk)：主流 64 位安卓手机与平板
+- [mobile-armeabi-v7a](https://github.com/zqs1qiwan/qbox/releases/latest/download/QBox-latest-mobile-armeabi-v7a.apk)：较老的 32 位平板 / 设备
 
 支持 Android 7.0 及以上。两个安装包使用相同签名，可直接覆盖安装，数据不会丢失。装过 1.9.12 或更早版本的用户需要先卸载旧版；1.9.13 及之后可以直接覆盖。
 

@@ -94,7 +94,9 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
         if (Intent.ACTION_SEND.equals(intent.getAction())) {
             VideoActivity.push(this, intent.getStringExtra(Intent.EXTRA_TEXT));
         } else if (Intent.ACTION_VIEW.equals(intent.getAction()) && intent.getData() != null) {
-            PermissionUtil.requestFile(this, allGranted -> checkType(intent));
+            PermissionUtil.requestFile(this, allGranted -> {
+                if (allGranted) checkType(intent);
+            });
         } else if (Intent.ACTION_SEARCH.equals(intent.getAction())) {
             String keyword = intent.getStringExtra(SearchManager.QUERY);
             if (!TextUtils.isEmpty(keyword)) SearchActivity.start(this, keyword);
@@ -240,12 +242,14 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
 
     @Override
     protected void onDestroy() {
-        LiveConfig.get().clear();
-        VodConfig.get().clear();
-        AppDatabase.backup();
-        OkHttp.get().clear();
-        Source.get().exit();
-        Server.get().stop();
+        if (!isChangingConfigurations()) {
+            LiveConfig.get().clear();
+            VodConfig.get().clear();
+            AppDatabase.backup();
+            OkHttp.get().clear();
+            Source.get().exit();
+            Server.get().stop();
+        }
         super.onDestroy();
     }
 }

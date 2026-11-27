@@ -11,7 +11,11 @@ import com.fongmi.android.tv.databinding.ViewEmptyBinding;
 import com.fongmi.android.tv.databinding.ViewProgressBinding;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class ProgressLayout extends RelativeLayout {
 
@@ -22,6 +26,8 @@ public class ProgressLayout extends RelativeLayout {
     }
 
     private List<View> mContentViews;
+    private final Map<View, Float> mSavedAlphas = new IdentityHashMap<>();
+    private final Set<View> mHiddenByUs = Collections.newSetFromMap(new IdentityHashMap<>());
     private View mProgressView;
     private View mEmptyView;
     private ViewEmptyBinding mEmptyBinding;
@@ -142,12 +148,20 @@ public class ProgressLayout extends RelativeLayout {
     }
 
     private void showView(View view) {
+        if (!mHiddenByUs.remove(view)) return;
+        Float saved = mSavedAlphas.remove(view);
+        float targetAlpha = saved != null ? saved : 1f;
+        view.animate().cancel();
         view.setAlpha(0f);
         view.setVisibility(VISIBLE);
-        view.animate().alpha(1f).setDuration(100);
+        view.animate().alpha(targetAlpha).setDuration(100);
     }
 
     private void hideView(View view) {
+        if (view.getVisibility() != VISIBLE) return;
+        mHiddenByUs.add(view);
+        mSavedAlphas.put(view, view.getAlpha());
+        view.animate().cancel();
         view.setVisibility(INVISIBLE);
     }
 }

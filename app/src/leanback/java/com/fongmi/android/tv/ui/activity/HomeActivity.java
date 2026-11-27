@@ -44,6 +44,7 @@ import com.fongmi.android.tv.event.ConfigEvent;
 import com.fongmi.android.tv.event.RefreshEvent;
 import com.fongmi.android.tv.event.ServerEvent;
 import com.fongmi.android.tv.impl.Callback;
+import com.fongmi.android.tv.impl.SiteListener;
 import com.fongmi.android.tv.model.SiteViewModel;
 import com.fongmi.android.tv.player.extractor.Source;
 import com.fongmi.android.tv.server.Server;
@@ -52,10 +53,8 @@ import com.fongmi.android.tv.ui.adapter.BaseDiffCallback;
 import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.ui.custom.CustomRowPresenter;
 import com.fongmi.android.tv.ui.custom.CustomSelector;
-import com.fongmi.android.tv.ui.custom.CustomTitleView;
 import com.fongmi.android.tv.ui.dialog.SiteDialog;
 import com.fongmi.android.tv.ui.presenter.FuncPresenter;
-import com.fongmi.android.tv.ui.presenter.HeaderPresenter;
 import com.fongmi.android.tv.ui.presenter.HistoryPresenter;
 import com.fongmi.android.tv.ui.presenter.ProgressPresenter;
 import com.fongmi.android.tv.ui.presenter.VodPresenter;
@@ -82,7 +81,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-public class HomeActivity extends BaseActivity implements CustomTitleView.Listener, VodPresenter.OnClickListener, FuncPresenter.OnClickListener, HistoryPresenter.OnClickListener {
+public class HomeActivity extends BaseActivity implements SiteListener, VodPresenter.OnClickListener, FuncPresenter.OnClickListener, HistoryPresenter.OnClickListener {
 
     private ActivityHomeBinding mBinding;
     private ArrayObjectAdapter mHistoryAdapter;
@@ -107,14 +106,27 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     /** 改了海报大小：数据回来后要把列表整个复位，否则会停在旧行高算出来的偏移上。 */
     private boolean mResizePending;
 
-    /** 氛围底图：跟随当前焦点卡片的海报做低分辨率放大，形成柔和的背景光，避免纯黑死板。 */
-    private final Runnable mBackdropTask = new Runnable() {
-        @Override
-        public void run() {
-            updateBackdrop();
-            App.post(this, 600);
-        }
+    /** 氛围底图防抖更新：由焦点变化/数据落位驱动，取代 600ms 常驻轮询。 */
+    private final Runnable mBackdropTask = () -> {
+        if (mBinding == null || isFinishing() || isDestroyed()) return;
+        updateBackdrop();
     };
+
+    private final Runnable mRetryHome = () -> {
+        if (mBinding == null || isFinishing() || isDestroyed()) return;
+        mAdapter.add("progress");
+        mViewModel.homeContent();
+    };
+
+    private final android.view.ViewTreeObserver.OnGlobalFocusChangeListener mGlobalFocusListener = (o, f) -> {
+        updateNavScrim(f);
+        App.post(mBackdropTask, 180);
+    };
+
+    @Override
+    protected boolean showBackdrop() {
+        return false;
+    }
 
     private Site getHome() {
         return VodConfig.get().getHome();
@@ -265,13 +277,12 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     @SuppressLint("RestrictedApi")
     private void setRecyclerView() {
         CustomSelector selector = new CustomSelector();
-        selector.addPresenter(Integer.class, new HeaderPresenter());
         selector.addPresenter(String.class, new ProgressPresenter());
         selector.addPresenter(Vod.class, new VodPresenter(this, Style.list()));
         selector.addPresenter(ListRow.class, new CustomRowPresenter(16, FocusHighlight.ZOOM_FACTOR_SMALL), VodPresenter.class);
-        selector.addPresenter(ListRow.class, new CustomRowPresenter(16, FocusHighlight.ZOOM_FACTOR_SMALL), FuncPresenter.class);
         selector.addPresenter(ListRow.class, new CustomRowPresenter(16, FocusHighlight.ZOOM_FACTOR_SMALL), HistoryPresenter.class);
         mBinding.recycler.setAdapter(new ItemBridgeAdapter(mAdapter = new ArrayObjectAdapter(selector)));
+        mBinding.recycler.setItemViewCacheSize(8);
         applyRowMetrics(Style.rect());
         mBinding.typeRecycler.setHorizontalSpacing(ResUtil.dp2px(12));
         mBinding.typeRecycler.setRowHeight(android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -299,10 +310,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             return;
         }
         homeRetry++;
-        App.post(() -> {
-            mAdapter.add("progress");
-            mViewModel.homeContent();
-        }, 1500L * homeRetry);
+        App.post(mRetryHome, 1500L * homeRetry);
     }
 
     private void setAdapter() {
@@ -451,7 +459,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     private void setNavScrim() {
         applyNavVariant();
-        getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((o, f) -> updateNavScrim(f));
+        getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener(mGlobalFocusListener);
     }
 
     /** 导航带变体：0=二次曲线渐变带（190dp），1=Apple TV+ 式「栏」。
@@ -497,6 +505,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     private void getVideo() {
+        homeRetry = 0;
+        App.removeCallbacks(mRetryHome);
         mResult = Result.empty();
         if (mResizePending) {
             // 先回到顶部再换数据：不然新行高会套用旧偏移，出现半行和错位。
@@ -523,15 +533,16 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             // list 风格的推荐是每行一张大卡的 Vod 行，没有 ListRow 载体；
             // 标题用一行「只带 HeaderItem 的空行」承载，视觉上就是原来的分组标题。
             if (mRecommendRow == null) {
-                mRecommendRow = new ListRow(new HeaderItem(getString(R.string.home_recommend)), new ArrayObjectAdapter());
+                mRecommendRow = new ListRow(new HeaderItem(getString(R.string.home_recommend)), new ArrayObjectAdapter(new VodPresenter(this, style)));
                 mAdapter.add(mAdapter.size(), mRecommendRow);
             }
             mAdapter.addAll(mAdapter.size(), result.getList());
         } else addGrid(result.getList(), style);
+        App.post(mBackdropTask, 180);
         if (mResizePending) resetAfterResize();
         // 数据是异步回来的：applyContentTop 里那次校正跑得比数据早，首屏第一排会贴着
         // 内容区起点，放大后顶部被裁掉。数据落位后再校正一次。
-        App.post(() -> mBinding.recycler.requestSnap(), 160);
+        App.post(() -> { if (mBinding != null) mBinding.recycler.requestSnap(); }, 160);
     }
 
     /** 换完海报尺寸：行高、行距、裁剪线都变了，列表必须从头摆一遍，否则焦点和滚动都停在旧几何上。 */
@@ -645,6 +656,11 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             mHistoryRow = new ListRow(new HeaderItem(getString(R.string.home_history)), mHistoryAdapter);
             mAdapter.add(base, mHistoryRow);
             historyShown = true;
+        } else if (renew) {
+            int index = mHistoryRow == null ? -1 : mAdapter.indexOf(mHistoryRow);
+            mHistoryRow = new ListRow(new HeaderItem(getString(R.string.home_history)), mHistoryAdapter);
+            if (index >= 0) mAdapter.replace(index, mHistoryRow);
+            else mAdapter.add(0, mHistoryRow);
         }
     }
 
@@ -808,14 +824,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         return true;
     }
 
-    @Override
-    public void showDialog() {
+    private void showDialog() {
         SiteDialog.create().show(this);
-    }
-
-    @Override
-    public void onRefresh() {
-        getVideo();
     }
 
     @Override
@@ -841,7 +851,10 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
                 return true;
             }
         }
-        if (KeyUtil.isMenuKey(event)) showDialog();
+        if (KeyUtil.isMenuKey(event)) {
+            showDialog();
+            return true;
+        }
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             // 顶栏、分类条、内容区三者之间的上下键在 Activity 层统一处理，避免 Leanback 把事件吃掉。
             // 焦点在卡片上时 recycler.hasFocus() 是 false（焦点在子 View），必须按归属判断；
@@ -885,12 +898,14 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private boolean focusLostInContent() {
         return getCurrentFocus() == null && hasWindowFocus()
                 && mBinding.recycler.getVisibility() == View.VISIBLE
-                && mBinding.typeRecycler.getVisibility() == View.VISIBLE;
+                && mBinding.recycler.getChildCount() > 0;
     }
 
     private boolean focusLostInTabs() {
-        return getCurrentFocus() == null && hasWindowFocus()
-                && mBinding.typeRecycler.getVisibility() == View.VISIBLE;
+        return !focusLostInContent()
+                && getCurrentFocus() == null && hasWindowFocus()
+                && mBinding.typeRecycler.getVisibility() == View.VISIBLE
+                && mBinding.typeRecycler.getChildCount() > 0;
     }
 
     @Override
@@ -899,7 +914,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         mClock.start();
         // 继续观看必须每次回到首页都重新读库，否则冷启动后只剩「更新推荐」。
         getHistory();
-        App.post(mBackdropTask, 700);
+        App.post(mBackdropTask, 200);
         // 从设置页/详情页返回时，系统可能把焦点回收掉（uiautomator 里一个 focused 节点都没有），
         // 表现就是「遥控器按什么都没反应」。这里兜底把焦点放回顶栏源名。
         App.post(this::restoreFocusIfLost, 150);
@@ -971,6 +986,10 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     @Override
     protected void onDestroy() {
+        if (getWindow() != null && getWindow().getDecorView().getViewTreeObserver().isAlive()) {
+            getWindow().getDecorView().getViewTreeObserver().removeOnGlobalFocusChangeListener(mGlobalFocusListener);
+        }
+        App.removeCallbacks(mRetryHome, mBackdropTask, mFocusGuard);
         if (com.fongmi.android.tv.BuildConfig.DEBUG) unregisterReceiver(mEdgeTierReceiver);
         DLNARendererService.stop(this);
         LiveConfig.get().clear();

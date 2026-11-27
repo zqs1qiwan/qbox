@@ -146,6 +146,7 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
         selector.addPresenter(ListRow.class, new CustomRowPresenter(16), VodPresenter.class);
         selector.addPresenter(ListRow.class, new CustomRowPresenter(8, FocusHighlight.ZOOM_FACTOR_NONE), FilterPresenter.class);
         mBinding.recycler.setAdapter(new ItemBridgeAdapter(mAdapter = new ArrayObjectAdapter(selector)));
+        mBinding.recycler.setItemViewCacheSize(8);
         applyRowMetrics(Style.rect());
         // 持续跟踪焦点所在的 chip 行——mLastFilterRow 原来只在「点击」时记，
         // 光移动焦点不点击就记不到，从海报按 ↑ 回 filter 才会总跳第一行。

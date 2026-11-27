@@ -34,7 +34,7 @@ public class Notify {
 
     public static void createChannel() {
         NotificationManagerCompat notifyMgr = NotificationManagerCompat.from(App.get());
-        notifyMgr.createNotificationChannel(new NotificationChannelCompat.Builder(DEFAULT, NotificationManagerCompat.IMPORTANCE_LOW).setName("TV").build());
+        notifyMgr.createNotificationChannel(new NotificationChannelCompat.Builder(DEFAULT, NotificationManagerCompat.IMPORTANCE_LOW).setName("QBox").build());
     }
 
     public static String getError(int resId, Throwable e) {
@@ -64,17 +64,24 @@ public class Notify {
         try {
             if (get().mDialog != null) get().mDialog.dismiss();
         } catch (Exception ignored) {
+        } finally {
+            get().mDialog = null;
         }
     }
 
     private void create(Context context) {
+        if (context instanceof android.app.Activity a && (a.isFinishing() || a.isDestroyed())) return;
         ViewProgressBinding binding = ViewProgressBinding.inflate(LayoutInflater.from(context));
         mDialog = new MaterialAlertDialogBuilder(context).setView(binding.getRoot()).create();
-        mDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        if (mDialog.getWindow() != null) mDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         mDialog.show();
     }
 
     private void makeText(String text) {
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            App.post(() -> makeText(text));
+            return;
+        }
         // 系统 Toast 不经 AppCompat，emoji 需显式过 EmojiCompat.process 才能用内嵌字体渲染
         // （实测换源 toast 站名 emoji 豆腐块）；字体未加载完时返回原文，不受影响。
         CharSequence cs = text;

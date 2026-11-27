@@ -65,9 +65,11 @@ import com.fongmi.android.tv.ui.dialog.SpeedSettingDialog;
 import com.fongmi.android.tv.ui.dialog.TrackDialog;
 import com.fongmi.android.tv.utils.Clock;
 import com.fongmi.android.tv.utils.ImgUtil;
+import com.fongmi.android.tv.utils.KeyUtil;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Traffic;
+import com.fongmi.android.tv.utils.ViewUtil;
 
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
@@ -641,7 +643,14 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
     }
 
     private void setR1Callback() {
+        if (isScrubbing()) return;
         App.post(mR1, Constant.INTERVAL_HIDE);
+    }
+
+    @Override
+    protected void onScrubbingChanged(boolean scrubbing) {
+        if (scrubbing) App.removeCallbacks(mR1);
+        else if (isVisible(mBinding.control.getRoot())) setR1Callback();
     }
 
     private void setR3Callback() {
@@ -990,9 +999,9 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER) {
-            // 频道列表展开时，长按 OK 交给列表项处理（收藏切换）；列表收起时才用于呼出控制条。
-            if (isGone(mBinding.recycler)) {
+        if (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER || event.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
+            // 频道列表展开时，长按 OK 交给列表项处理（收藏切换）；列表收起且控制栏未展开时才用于呼出控制条。
+            if (isGone(mBinding.recycler) && isGone(mBinding.control.getRoot())) {
                 if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() > 0) {
                     centerLongPress = true;
                     showControl(getFocus2());
@@ -1004,9 +1013,15 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
                 }
             }
         }
-        if (isVisible(mBinding.control.getRoot())) setR1Callback();
-        if (isVisible(mBinding.control.getRoot())) mFocus2 = getCurrentFocus();
-        if (mKeyDown.hasEvent(event) && service() != null) mKeyDown.onKeyDown(event);
+        if (isVisible(mBinding.control.getRoot())) {
+            setR1Callback();
+            View focus = getCurrentFocus();
+            if (ViewUtil.isInside(mBinding.control.getRoot(), focus)) mFocus2 = focus;
+        }
+        if (mKeyDown.hasEvent(event) && service() != null && dispatch(true)) {
+            mKeyDown.onKeyDown(event);
+            return true;
+        }
         return super.dispatchKeyEvent(event);
     }
 
