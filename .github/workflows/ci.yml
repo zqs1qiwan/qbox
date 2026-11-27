@@ -18,6 +18,10 @@ on:
         description: 'Build signed release APKs (requires release Secrets)'
         type: boolean
         default: false
+      run_smoke:
+        description: 'Run headless TV emulator smoke test'
+        type: boolean
+        default: false
 
 env:
   GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-cache
@@ -162,7 +166,7 @@ jobs:
       #   ARM debug APK（90MB）→ 只在 dispatch/tag 这种主动要包时留档，push 只编译+校验；
       #   release（88MB）→ 只在 dispatch/tag 出，保留 3 天。
       - name: Upload x86_64 debug APK
-        if: always() && github.event_name != 'pull_request'
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.run_smoke == true
         uses: actions/upload-artifact@v7
         with:
           # 只放 APK：artifact 根目录 = leanbackX86_64/debug，smoke job 直接解到脚本预期路径。
@@ -196,8 +200,9 @@ jobs:
   # 之前塞在 build-debug 里会因 ~40 分钟构建后磁盘/CPU 紧张，模拟器 30 分钟都起不来。
   smoke:
     needs: build-debug
-    # PR 上跳过以省时间；push/main、手动 dispatch 都跑。
-    if: github.event_name != 'pull_request'
+    # 免费 Linux runner 缺少 KVM 时纯软解模拟器易 30 分钟超时，仅在手动触发并勾选 run_smoke 时执行。
+    if: github.event_name == 'workflow_dispatch' && inputs.run_smoke == true
+    continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 60
 
