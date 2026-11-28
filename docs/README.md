@@ -1,6 +1,6 @@
 # 文档
 
-安装与日常使用请先看根目录 [README](../README.md)。这里收录配置格式参考与维护资料；`HEADLESS.md`、`DEVELOPING.md` 面向贡献者，普通用户不需要阅读。
+安装与日常使用请先看 **[QBox 在线 Wiki 指南](https://zqs1qiwan.github.io/qbox/)**（或根目录 [README](../README.md)）。这里收录配置格式参考与维护资料；`HEADLESS.md`、`DEVELOPING.md` 面向贡献者，普通用户不需要阅读。
 
 | 文档 | 内容 |
 |---|---|

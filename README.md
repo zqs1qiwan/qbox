@@ -31,6 +31,11 @@
 - 无开屏广告、无弹窗、无后台统计，也不需要注册账号
 - 内置检查更新，发现新版本可直接下载安装
 
+## 文档与使用指南
+
+- **[QBox 在线 Wiki 指南（中文 / English）](https://zqs1qiwan.github.io/qbox/)** — 包含品牌引导、TV 与手机/平板选包说明、TVBox 配置与直播源格式、遥控与触屏操作、常见问题及实机截图案例（源码位于 [docs/wiki](docs/wiki/index.html)）。
+- 技术规格文档见 [docs/README.md](docs/README.md)（配置字段、直播格式、爬虫 API 与本地 HTTP 接口）。
+
 ## 下载
 
 前往 **[GitHub Releases](https://github.com/zqs1qiwan/qbox/releases/latest)** 下载最新版本：

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QBox Wiki · 使用指南 / User Guide</title>
+  <link rel="icon" type="image/png" href="assets/qbox-logo.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <button id="menuToggle" class="icon-btn mobile-only" aria-label="Toggle Menu">☰</button>
+      <a class="brand" id="brandLink" href="#zh/home">
+        <img src="assets/qbox-logo.png" alt="QBox" class="brand-logo" />
+        <span style="font-weight:700;font-size:16px;color:#eef3fa;">QBox</span>
+        <span class="version-pill" id="versionPill">Wiki</span>
+      </a>
+    </div>
+    <div class="topbar-center">
+      <input id="searchInput" type="search" placeholder="搜索安装、TVBox 配置、直播源、遥控按键..." autocomplete="off" />
+    </div>
+    <div class="topbar-right">
+      <button id="langToggle" class="pill-btn" type="button">English</button>
+      <a class="pill-btn ghost" id="repoLink" href="https://github.com/zqs1qiwan/qbox" target="_blank" rel="noopener">GitHub</a>
+      <a class="pill-btn primary" id="releaseLink" href="https://github.com/zqs1qiwan/qbox/releases/latest" target="_blank" rel="noopener">下载 APK</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-group-label" id="navHeading">文档目录</div>
+      <nav id="sidebarNav" class="nav-list"></nav>
+      <div class="sidebar-footer">
+        <a id="altReadmeLink" href="https://github.com/zqs1qiwan/qbox/blob/main/README.md" target="_blank" rel="noopener">仓库主页 (README)</a>
+        <span>·</span>
+        <a href="https://github.com/zqs1qiwan/qbox/issues" target="_blank" rel="noopener">Issues</a>
+      </div>
+    </aside>
+
+    <main class="content-wrap">
+      <div id="searchResultsBanner" class="search-banner hidden"></div>
+      <article id="articleBody" class="article"></article>
+      <footer class="article-footer">
+        <div id="pagerLinks" class="pager"></div>
+        <p class="disclaimer" id="footerDisclaimer"></p>
+      </footer>
+    </main>
+  </div>
+
+  <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true">
+    <button id="lightboxClose" class="lightbox-close" aria-label="Close">×</button>
+    <img id="lightboxImg" src="" alt="" />
+    <div id="lightboxCaption" class="lightbox-caption"></div>
+  </div>
+
+  <script src="wiki-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
